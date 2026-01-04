@@ -4,4 +4,4 @@ project_id = "lsljladmjqffnjfirrmu"
 verify_jwt = true
 
 [functions.analyze-medical-report]
-verify_jwt = true
+verify_jwt = false
