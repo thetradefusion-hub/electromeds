@@ -50,6 +50,59 @@ export type Database = {
         }
         Relationships: []
       }
+      medicine_rules: {
+        Row: {
+          created_at: string
+          description: string | null
+          doctor_id: string | null
+          dosage: string
+          duration: string
+          id: string
+          is_global: boolean
+          medicine_ids: string[]
+          name: string
+          priority: number
+          symptom_ids: string[]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          doctor_id?: string | null
+          dosage: string
+          duration: string
+          id?: string
+          is_global?: boolean
+          medicine_ids?: string[]
+          name: string
+          priority?: number
+          symptom_ids?: string[]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          doctor_id?: string | null
+          dosage?: string
+          duration?: string
+          id?: string
+          is_global?: boolean
+          medicine_ids?: string[]
+          name?: string
+          priority?: number
+          symptom_ids?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medicine_rules_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       medicines: {
         Row: {
           category: string
