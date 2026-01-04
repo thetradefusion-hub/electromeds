@@ -4,6 +4,7 @@ import { usePatients } from '@/hooks/usePatients';
 import { useSymptoms, Symptom } from '@/hooks/useSymptoms';
 import { useMedicines, Medicine } from '@/hooks/useMedicines';
 import { usePrescriptions, PrescriptionSymptom, PrescriptionMedicine } from '@/hooks/usePrescriptions';
+import { usePrescriptionTemplates, CreateTemplateData } from '@/hooks/usePrescriptionTemplates';
 import { generatePrescriptionPDF } from '@/utils/generatePrescriptionPDF';
 import { useWhatsAppShare } from '@/hooks/useWhatsAppShare';
 import {
@@ -28,6 +29,9 @@ import {
   MessageCircle,
   ChevronDown,
   ChevronUp,
+  Save,
+  FolderOpen,
+  Trash2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
@@ -91,6 +95,7 @@ export default function Consultation() {
   const { symptoms, loading: symptomsLoading } = useSymptoms();
   const { medicines } = useMedicines();
   const { createPrescription, doctorInfo } = usePrescriptions();
+  const { templates, createTemplate, deleteTemplate } = usePrescriptionTemplates();
 
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(patientIdFromUrl);
   const [patientSearch, setPatientSearch] = useState('');
@@ -116,6 +121,13 @@ export default function Consultation() {
   const [patientHistory, setPatientHistory] = useState<PatientPrescription[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [showHistory, setShowHistory] = useState(true);
+
+  // Template state
+  const [showSaveTemplate, setShowSaveTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+  const [templateDescription, setTemplateDescription] = useState('');
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [showTemplateList, setShowTemplateList] = useState(false);
 
   const patient = patients.find((p) => p.id === selectedPatientId);
 
@@ -397,6 +409,89 @@ export default function Consultation() {
     });
   };
 
+  const handleSaveTemplate = async () => {
+    if (!templateName.trim()) {
+      toast.error('Please enter a template name');
+      return;
+    }
+    if (selectedSymptoms.length === 0 && suggestedMedicines.length === 0) {
+      toast.error('Add symptoms or medicines to save as template');
+      return;
+    }
+
+    setSavingTemplate(true);
+    
+    const templateData: CreateTemplateData = {
+      name: templateName.trim(),
+      description: templateDescription.trim() || undefined,
+      symptoms: selectedSymptoms.map(ss => ({
+        id: ss.symptomId,
+        name: ss.symptom.name,
+        severity: ss.severity,
+        duration: ss.duration,
+        durationUnit: ss.durationUnit,
+      })),
+      medicines: suggestedMedicines.map(sm => ({
+        id: sm.medicineId,
+        name: sm.medicine.name,
+        category: sm.medicine.category,
+        dosage: sm.dosage,
+        duration: sm.duration,
+        instructions: sm.instructions,
+      })),
+      diagnosis: diagnosis || undefined,
+      advice: advice || undefined,
+    };
+
+    await createTemplate(templateData);
+    setSavingTemplate(false);
+    setShowSaveTemplate(false);
+    setTemplateName('');
+    setTemplateDescription('');
+  };
+
+  const loadTemplate = (template: typeof templates[0]) => {
+    // Load symptoms - match by name in case IDs differ
+    const loadedSymptoms: SelectedSymptom[] = [];
+    template.symptoms.forEach(ts => {
+      const matchedSymptom = symptoms.find(s => s.name === ts.name || s.id === ts.id);
+      if (matchedSymptom) {
+        loadedSymptoms.push({
+          symptomId: matchedSymptom.id,
+          symptom: matchedSymptom,
+          severity: ts.severity,
+          duration: ts.duration,
+          durationUnit: ts.durationUnit,
+        });
+      }
+    });
+    setSelectedSymptoms(loadedSymptoms);
+
+    // Load medicines
+    const loadedMedicines: SuggestedMedicine[] = [];
+    template.medicines.forEach(tm => {
+      const matchedMedicine = medicines.find(m => m.name === tm.name || m.id === tm.id);
+      if (matchedMedicine) {
+        loadedMedicines.push({
+          medicineId: matchedMedicine.id,
+          medicine: matchedMedicine,
+          dosage: tm.dosage,
+          duration: tm.duration,
+          instructions: tm.instructions,
+        });
+      }
+    });
+    setSuggestedMedicines(loadedMedicines);
+    if (loadedMedicines.length > 0) setShowSuggestions(true);
+
+    // Load diagnosis and advice
+    if (template.diagnosis) setDiagnosis(template.diagnosis);
+    if (template.advice) setAdvice(template.advice);
+
+    setShowTemplateList(false);
+    toast.success(`Loaded template: ${template.name}`);
+  };
+
   if (patientsLoading || symptomsLoading) {
     return (
       <MainLayout title="New Consultation" subtitle="Record symptoms and generate prescription">
@@ -628,6 +723,127 @@ export default function Consultation() {
               )}
             </div>
           )}
+
+          {/* Templates Section */}
+          <div className="medical-card">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                <FolderOpen className="h-5 w-5 text-primary" />
+                Prescription Templates
+              </h3>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowTemplateList(!showTemplateList)}
+                  className="flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-secondary"
+                >
+                  <FolderOpen className="h-4 w-4" />
+                  Load ({templates.length})
+                </button>
+                <button
+                  onClick={() => setShowSaveTemplate(!showSaveTemplate)}
+                  disabled={selectedSymptoms.length === 0 && suggestedMedicines.length === 0}
+                  className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                >
+                  <Save className="h-4 w-4" />
+                  Save
+                </button>
+              </div>
+            </div>
+
+            {/* Save Template Form */}
+            {showSaveTemplate && (
+              <div className="mb-4 rounded-lg border border-primary/30 bg-primary/5 p-4">
+                <h4 className="mb-3 text-sm font-medium text-foreground">Save as Template</h4>
+                <div className="space-y-3">
+                  <div>
+                    <label className="mb-1 block text-xs text-muted-foreground">Template Name *</label>
+                    <input
+                      type="text"
+                      value={templateName}
+                      onChange={(e) => setTemplateName(e.target.value)}
+                      placeholder="e.g., Common Cold Treatment"
+                      className="medical-input"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs text-muted-foreground">Description (optional)</label>
+                    <input
+                      type="text"
+                      value={templateDescription}
+                      onChange={(e) => setTemplateDescription(e.target.value)}
+                      placeholder="Brief description..."
+                      className="medical-input"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleSaveTemplate}
+                      disabled={savingTemplate || !templateName.trim()}
+                      className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                    >
+                      {savingTemplate ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                      Save Template
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowSaveTemplate(false);
+                        setTemplateName('');
+                        setTemplateDescription('');
+                      }}
+                      className="rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Template List */}
+            {showTemplateList && (
+              <div className="rounded-lg border border-border bg-card p-3">
+                {templates.length === 0 ? (
+                  <p className="py-4 text-center text-sm text-muted-foreground">
+                    No saved templates. Create your first template by adding symptoms/medicines and clicking Save.
+                  </p>
+                ) : (
+                  <div className="space-y-2 max-h-64 overflow-y-auto scrollbar-thin">
+                    {templates.map((template) => (
+                      <div
+                        key={template.id}
+                        className="flex items-center justify-between rounded-lg border border-border bg-background p-3 transition-colors hover:border-primary/30"
+                      >
+                        <button
+                          onClick={() => loadTemplate(template)}
+                          className="flex-1 text-left"
+                        >
+                          <p className="font-medium text-foreground">{template.name}</p>
+                          {template.description && (
+                            <p className="text-xs text-muted-foreground">{template.description}</p>
+                          )}
+                          <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                            <span>{template.symptoms.length} symptoms</span>
+                            <span>•</span>
+                            <span>{template.medicines.length} medicines</span>
+                          </div>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteTemplate(template.id);
+                          }}
+                          className="ml-2 rounded p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                          title="Delete template"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Symptoms Selection */}
           <div className="medical-card">
