@@ -8,6 +8,7 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
 import Patients from "./pages/Patients";
 import NewPatient from "./pages/NewPatient";
+import PatientHistory from "./pages/PatientHistory";
 import Consultation from "./pages/Consultation";
 import Prescriptions from "./pages/Prescriptions";
 import Medicines from "./pages/Medicines";
@@ -51,6 +52,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['super_admin', 'doctor', 'staff']}>
                   <NewPatient />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/patients/history"
+              element={
+                <ProtectedRoute allowedRoles={['super_admin', 'doctor', 'staff']}>
+                  <PatientHistory />
                 </ProtectedRoute>
               }
             />
