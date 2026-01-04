@@ -65,6 +65,7 @@
     "rulesEngine": "Rules Engine",
     "analytics": "Analytics",
     "superAdmin": "Super Admin",
+    "saasAdmin": "SaaS Admin",
     "settings": "Settings",
     "logout": "Logout"
   },

@@ -38,6 +38,7 @@ const navItems: NavItem[] = [
   { icon: BookOpen, labelKey: 'nav.rulesEngine', path: '/rules', roles: ['super_admin', 'doctor'] },
   { icon: Activity, labelKey: 'nav.analytics', path: '/analytics', roles: ['super_admin', 'doctor'] },
   { icon: Shield, labelKey: 'nav.superAdmin', path: '/admin', roles: ['super_admin'] },
+  { icon: Activity, labelKey: 'nav.saasAdmin', path: '/saas-admin', roles: ['super_admin'] },
 ];
 
 const bottomNavItems: NavItem[] = [
