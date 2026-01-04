@@ -28,11 +28,11 @@ interface NavItem {
 const navItems: NavItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
   { icon: Users, label: 'Patients', path: '/patients' },
+  { icon: CalendarCheck, label: 'Appointments', path: '/appointments' },
   { icon: Stethoscope, label: 'Consultation', path: '/consultation', roles: ['super_admin', 'doctor'] },
   { icon: FileText, label: 'Prescriptions', path: '/prescriptions', roles: ['super_admin', 'doctor'] },
   { icon: Pill, label: 'Medicines', path: '/medicines', roles: ['super_admin', 'doctor'] },
   { icon: BookOpen, label: 'Rules Engine', path: '/rules', roles: ['super_admin', 'doctor'] },
-  { icon: CalendarCheck, label: 'Follow-ups', path: '/followups' },
   { icon: Activity, label: 'Analytics', path: '/analytics', roles: ['super_admin', 'doctor'] },
   { icon: Shield, label: 'Super Admin', path: '/admin', roles: ['super_admin'] },
 ];
