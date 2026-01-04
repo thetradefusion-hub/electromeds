@@ -3,7 +3,7 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { usePatients, Patient } from '@/hooks/usePatients';
 import { exportPatientsToCSV } from '@/utils/exportUtils';
 import { PatientSearchFilters, PatientFilters, defaultFilters } from '@/components/patients/PatientSearchFilters';
-import { Plus, User, Phone, MapPin, Calendar, MoreVertical, FileText, Stethoscope, Trash2, Edit, Loader2, Download } from 'lucide-react';
+import { Plus, User, Phone, MapPin, Calendar, MoreVertical, FileText, Stethoscope, Trash2, Edit, Loader2, Download, History } from 'lucide-react';
 import { format, isAfter, isBefore, startOfDay, endOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Link } from 'react-router-dom';
@@ -237,6 +237,13 @@ export default function Patients() {
                 {patient.case_type === 'new' ? 'New Case' : 'Follow-up'}
               </span>
               <div className="flex items-center gap-2">
+                <Link
+                  to={`/patients/history?patient=${patient.id}`}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                  title="View History"
+                >
+                  <History className="h-4 w-4" />
+                </Link>
                 <Link
                   to={`/prescriptions?patient=${patient.id}`}
                   className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
