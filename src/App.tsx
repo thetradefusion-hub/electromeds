@@ -19,6 +19,7 @@ import Settings from "./pages/Settings";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import SuperAdmin from "./pages/SuperAdmin";
+import SaasAdmin from "./pages/SaasAdmin";
 import Appointments from "./pages/Appointments";
 import BookAppointment from "./pages/BookAppointment";
 import Symptoms from "./pages/Symptoms";
@@ -136,6 +137,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['super_admin']}>
                   <SuperAdmin />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/saas-admin"
+              element={
+                <ProtectedRoute allowedRoles={['super_admin']}>
+                  <SaasAdmin />
                 </ProtectedRoute>
               }
             />
