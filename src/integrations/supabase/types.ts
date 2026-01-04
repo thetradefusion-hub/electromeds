@@ -342,6 +342,53 @@ export type Database = {
           },
         ]
       }
+      prescription_templates: {
+        Row: {
+          advice: string | null
+          created_at: string
+          description: string | null
+          diagnosis: string | null
+          doctor_id: string
+          id: string
+          medicines: Json
+          name: string
+          symptoms: Json
+          updated_at: string
+        }
+        Insert: {
+          advice?: string | null
+          created_at?: string
+          description?: string | null
+          diagnosis?: string | null
+          doctor_id: string
+          id?: string
+          medicines?: Json
+          name: string
+          symptoms?: Json
+          updated_at?: string
+        }
+        Update: {
+          advice?: string | null
+          created_at?: string
+          description?: string | null
+          diagnosis?: string | null
+          doctor_id?: string
+          id?: string
+          medicines?: Json
+          name?: string
+          symptoms?: Json
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prescription_templates_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prescriptions: {
         Row: {
           advice: string | null
