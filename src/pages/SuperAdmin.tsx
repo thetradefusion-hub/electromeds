@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Activity, Pill, Stethoscope } from 'lucide-react';
+import { Users, Activity, Pill, Stethoscope, BookOpen } from 'lucide-react';
 import DoctorsManagement from '@/components/superadmin/DoctorsManagement';
 import ClinicAnalytics from '@/components/superadmin/ClinicAnalytics';
 import SymptomsManagement from '@/components/superadmin/SymptomsManagement';
 import MedicinesManagement from '@/components/superadmin/MedicinesManagement';
+import RulesManagement from '@/components/superadmin/RulesManagement';
 
 const SuperAdmin = () => {
   const [activeTab, setActiveTab] = useState('doctors');
@@ -19,7 +20,7 @@ const SuperAdmin = () => {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-flex">
+          <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-flex">
             <TabsTrigger value="doctors" className="gap-2">
               <Users className="h-4 w-4" />
               <span className="hidden sm:inline">Doctors</span>
@@ -35,6 +36,10 @@ const SuperAdmin = () => {
             <TabsTrigger value="medicines" className="gap-2">
               <Pill className="h-4 w-4" />
               <span className="hidden sm:inline">Medicines</span>
+            </TabsTrigger>
+            <TabsTrigger value="rules" className="gap-2">
+              <BookOpen className="h-4 w-4" />
+              <span className="hidden sm:inline">Rules</span>
             </TabsTrigger>
           </TabsList>
 
@@ -52,6 +57,10 @@ const SuperAdmin = () => {
 
           <TabsContent value="medicines">
             <MedicinesManagement />
+          </TabsContent>
+
+          <TabsContent value="rules">
+            <RulesManagement />
           </TabsContent>
         </Tabs>
       </div>
