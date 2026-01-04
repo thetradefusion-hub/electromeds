@@ -20,7 +20,8 @@ import {
   ArrowLeft,
   AlertCircle,
   Printer,
-  Download
+  Download,
+  MessageCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +29,7 @@ import { Button } from '@/components/ui/button';
 import { Json } from '@/integrations/supabase/types';
 import { generatePatientHistoryPDF } from '@/utils/generatePatientHistoryPDF';
 import { generatePrescriptionPDF } from '@/utils/generatePrescriptionPDF';
+import { useWhatsAppShare } from '@/hooks/useWhatsAppShare';
 import { toast } from 'sonner';
 
 interface Patient {
@@ -88,6 +90,7 @@ export default function PatientHistory() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const patientId = searchParams.get('patient');
+  const { shareViaWhatsAppDirect } = useWhatsAppShare();
   
   const [patient, setPatient] = useState<Patient | null>(null);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
@@ -212,6 +215,34 @@ export default function PatientHistory() {
       doctorInfo
     );
     toast.success(`Prescription ${prescription.prescription_no} downloaded`);
+  };
+
+  const handleWhatsAppShare = (prescription: Prescription, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!patient || !doctorInfo) {
+      toast.error('Unable to share prescription. Please try again.');
+      return;
+    }
+
+    shareViaWhatsAppDirect({
+      prescriptionId: prescription.id,
+      patientMobile: patient.mobile,
+      patientName: patient.name,
+      prescriptionNo: prescription.prescription_no,
+      doctorName: doctorInfo.name,
+      clinicName: doctorInfo.clinic_name || 'Medical Clinic',
+      symptoms: prescription.symptoms.map((s) => ({ name: s.name })),
+      medicines: prescription.medicines.map((m) => ({
+        name: m.name,
+        dosage: m.dosage,
+        duration: m.duration,
+      })),
+      diagnosis: prescription.diagnosis || undefined,
+      advice: prescription.advice || undefined,
+      followUpDate: prescription.follow_up_date
+        ? format(new Date(prescription.follow_up_date), 'dd MMM yyyy')
+        : undefined,
+    });
   };
 
   const toggleExpand = (id: string) => {
@@ -564,8 +595,17 @@ export default function PatientHistory() {
                             </div>
                           )}
 
-                          {/* Download Button */}
-                          <div className="flex justify-end pt-2">
+                          {/* Action Buttons */}
+                          <div className="flex justify-end gap-2 pt-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-2 text-green-600 border-green-200 hover:bg-green-50 hover:text-green-700"
+                              onClick={(e) => handleWhatsAppShare(event.data!, e)}
+                            >
+                              <MessageCircle className="h-4 w-4" />
+                              WhatsApp
+                            </Button>
                             <Button
                               variant="outline"
                               size="sm"

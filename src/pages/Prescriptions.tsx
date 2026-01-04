@@ -3,15 +3,41 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { usePrescriptions, Prescription } from '@/hooks/usePrescriptions';
 import { generatePrescriptionPDF } from '@/utils/generatePrescriptionPDF';
 import { exportPrescriptionsToCSV } from '@/utils/exportUtils';
-import { Search, FileText, Download, Printer, Eye, Calendar, User, Pill, Loader2 } from 'lucide-react';
+import { useWhatsAppShare } from '@/hooks/useWhatsAppShare';
+import { Search, FileText, Download, Printer, Eye, Calendar, User, Pill, Loader2, MessageCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export default function Prescriptions() {
   const { prescriptions, loading, doctorInfo } = usePrescriptions();
+  const { sending, shareViaWhatsAppDirect } = useWhatsAppShare();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null);
+
+  const handleWhatsAppShare = (rx: Prescription) => {
+    if (!rx.patient || !doctorInfo) return;
+
+    shareViaWhatsAppDirect({
+      prescriptionId: rx.id,
+      patientMobile: rx.patient.mobile,
+      patientName: rx.patient.name,
+      prescriptionNo: rx.prescription_no,
+      doctorName: doctorInfo.name,
+      clinicName: doctorInfo.clinic_name || 'Medical Clinic',
+      symptoms: rx.symptoms.map((s) => ({ name: s.name })),
+      medicines: rx.medicines.map((m) => ({
+        name: m.name,
+        dosage: m.dosage,
+        duration: m.duration,
+      })),
+      diagnosis: rx.diagnosis || undefined,
+      advice: rx.advice || undefined,
+      followUpDate: rx.follow_up_date
+        ? format(new Date(rx.follow_up_date), 'dd MMM yyyy')
+        : undefined,
+    });
+  };
 
   const filteredPrescriptions = prescriptions.filter(
     (rx) =>
@@ -153,8 +179,19 @@ export default function Prescriptions() {
                           setSelectedPrescription(rx);
                         }}
                         className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                        title="View"
                       >
                         <Eye className="h-4 w-4" />
+                      </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleWhatsAppShare(rx);
+                        }}
+                        className="flex h-8 w-8 items-center justify-center rounded-lg text-green-600 transition-colors hover:bg-green-50 hover:text-green-700"
+                        title="Share via WhatsApp"
+                      >
+                        <MessageCircle className="h-4 w-4" />
                       </button>
                       <button 
                         onClick={(e) => {
@@ -162,6 +199,7 @@ export default function Prescriptions() {
                           handlePrint(rx);
                         }}
                         className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                        title="Print"
                       >
                         <Printer className="h-4 w-4" />
                       </button>
@@ -171,6 +209,7 @@ export default function Prescriptions() {
                           handleDownloadPDF(rx);
                         }}
                         className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                        title="Download PDF"
                       >
                         <Download className="h-4 w-4" />
                       </button>
@@ -298,21 +337,30 @@ export default function Prescriptions() {
               )}
 
               {/* Actions */}
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2">
                 <button 
-                  onClick={() => handlePrint(selectedPrescription)}
-                  className="flex-1 medical-btn-secondary"
+                  onClick={() => handleWhatsAppShare(selectedPrescription)}
+                  className="w-full flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-green-700"
                 >
-                  <Printer className="h-4 w-4" />
-                  Print
+                  <MessageCircle className="h-4 w-4" />
+                  Share via WhatsApp
                 </button>
-                <button 
-                  onClick={() => handleDownloadPDF(selectedPrescription)}
-                  className="flex-1 medical-btn-primary"
-                >
-                  <Download className="h-4 w-4" />
-                  Download PDF
-                </button>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => handlePrint(selectedPrescription)}
+                    className="flex-1 medical-btn-secondary"
+                  >
+                    <Printer className="h-4 w-4" />
+                    Print
+                  </button>
+                  <button 
+                    onClick={() => handleDownloadPDF(selectedPrescription)}
+                    className="flex-1 medical-btn-primary"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download PDF
+                  </button>
+                </div>
               </div>
             </div>
           ) : (
