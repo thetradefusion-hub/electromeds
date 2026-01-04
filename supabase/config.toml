@@ -1,1 +1,4 @@
 project_id = "lsljladmjqffnjfirrmu"
+
+[functions.send-whatsapp-prescription]
+verify_jwt = true
