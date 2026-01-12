@@ -1,73 +1,143 @@
-# Welcome to your Lovable project
+# ElectroMed - AI-Powered Electro Homeopathy Clinic Management SaaS
 
-## Project info
+> India's First AI-Powered Electro Homeopathy Clinic Management Platform
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## 🚀 Quick Start
 
-## How can I edit this code?
+### Prerequisites
+- Node.js 18+ and npm
+- MongoDB (local or Atlas)
+- Git
 
-There are several ways of editing your application.
+### Local Development
 
-**Use Lovable**
+```bash
+# Clone the repository
+git clone https://github.com/thetradefusion-hub/electromeds.git
+cd electromeds
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+# Install frontend dependencies
+npm install
 
-Changes made via Lovable will be committed automatically to this repo.
+# Install backend dependencies
+cd backend
+npm install
 
-**Use your preferred IDE**
+# Set up environment variables
+# Frontend: Create .env file with VITE_API_URL=http://localhost:5000/api
+# Backend: Create backend/.env file (see backend/.env.example)
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+# Start backend (from backend directory)
+npm run dev
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start frontend (from root directory)
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Frontend: http://localhost:8080  
+Backend: http://localhost:5000
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 📦 Deployment
 
-**Use GitHub Codespaces**
+### Quick Deploy (5 minutes)
+See [QUICK_DEPLOY.md](./QUICK_DEPLOY.md) for fast deployment guide.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Detailed Deployment Guide
+See [DEPLOYMENT_GUIDE.md](./DEPLOYMENT_GUIDE.md) for complete step-by-step instructions.
 
-## What technologies are used for this project?
+**Deployment Platforms:**
+- **Frontend**: Vercel (recommended)
+- **Backend**: Railway (recommended)
+- **Database**: MongoDB Atlas or Railway MongoDB
 
-This project is built with:
+## 🏗️ Project Structure
 
+```
+electromed/
+├── backend/          # Node.js + Express + MongoDB API
+│   ├── src/
+│   │   ├── controllers/
+│   │   ├── models/
+│   │   ├── routes/
+│   │   └── middleware/
+│   └── package.json
+├── src/              # React + TypeScript Frontend
+│   ├── components/
+│   ├── pages/
+│   ├── hooks/
+│   └── lib/
+├── public/
+└── package.json
+```
+
+## 🎯 Features
+
+- ✅ **Patient Management** - Complete patient records and history
+- ✅ **Prescription Management** - Digital prescriptions with PDF generation
+- ✅ **AI-Powered Analysis** - Medical report analysis with multiple AI providers
+- ✅ **Appointment Scheduling** - Smart appointment management
+- ✅ **Staff Management** - Role-based staff assignment
+- ✅ **Analytics Dashboard** - Comprehensive clinic analytics
+- ✅ **Subscription Plans** - 3-tier SaaS pricing
+- ✅ **Electro Homeopathy Data** - 110 symptoms, 96 medicines, 50 rules pre-loaded
+- ✅ **Multi-language** - English & Hindi support
+- ✅ **WhatsApp Integration** - Share prescriptions via WhatsApp
+
+## 🛠️ Tech Stack
+
+### Frontend
+- React 18 + TypeScript
 - Vite
+- Tailwind CSS + Shadcn UI
+- TanStack Query
+- React Router DOM
+
+### Backend
+- Node.js + Express
+- MongoDB + Mongoose
+- JWT Authentication
 - TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
 
-## How can I deploy this project?
+## 📚 Documentation
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+- [Project Overview](./PROJECT_OVERVIEW.md)
+- [Deployment Guide](./DEPLOYMENT_GUIDE.md)
+- [Quick Deploy](./QUICK_DEPLOY.md)
+- [Competitor Analysis](./COMPETITOR_ANALYSIS_INDIA.md)
+- [Enhancement Roadmap](./ENHANCEMENT_ROADMAP.md)
+- [Backend API Docs](./backend/docs/API_ENDPOINTS.md)
 
-## Can I connect a custom domain to my Lovable project?
+## 🔐 Environment Variables
 
-Yes, you can!
+### Frontend (.env)
+```env
+VITE_API_URL=http://localhost:5000/api
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+### Backend (backend/.env)
+```env
+PORT=5000
+NODE_ENV=development
+MONGODB_URI=mongodb://localhost:27017/electromed
+JWT_SECRET=your-secret-key
+JWT_EXPIRE=7d
+FRONTEND_URL=http://localhost:8080
+```
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+See `backend/.env.example` for complete list.
+
+## 📝 License
+
+ISC
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📞 Support
+
+For issues and questions, please open an issue on GitHub.
+
+---
+
+**Built with ❤️ for Electro Homeopathy Practitioners**
