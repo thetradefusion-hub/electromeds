@@ -46,7 +46,10 @@ export function useDashboardStats(doctorId: string | undefined) {
       }
     },
     enabled: !!doctorId,
-    refetchOnWindowFocus: true,
-    refetchOnMount: true,
+    staleTime: 2 * 60 * 1000, // 2 minutes - stats can be cached
+    cacheTime: 5 * 60 * 1000, // 5 minutes cache
+    refetchOnWindowFocus: false, // Don't refetch on focus
+    refetchOnMount: false, // Use cached data if fresh
+    refetchInterval: 5 * 60 * 1000, // Refetch every 5 minutes in background
   });
 }

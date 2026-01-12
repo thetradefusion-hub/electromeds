@@ -26,7 +26,23 @@ import BookAppointment from "./pages/BookAppointment";
 import Symptoms from "./pages/Symptoms";
 import StaffManagement from "./pages/StaffManagement";
 
-const queryClient = new QueryClient();
+// Optimized QueryClient for better performance
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes - data considered fresh
+      cacheTime: 10 * 60 * 1000, // 10 minutes - cache retention
+      refetchOnWindowFocus: false, // Don't refetch on window focus (reduces unnecessary calls)
+      refetchOnMount: false, // Don't refetch on mount if data is fresh
+      refetchOnReconnect: true, // Only refetch on reconnect
+      retry: 1, // Retry failed requests only once
+      retryDelay: 1000, // 1 second delay between retries
+    },
+    mutations: {
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

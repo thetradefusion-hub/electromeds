@@ -2,6 +2,7 @@ import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import compression from 'compression';
 import connectDB from './config/database.js';
 import config from './config/env.js';
 import { errorHandler } from './middleware/errorHandler.js';
@@ -31,6 +32,7 @@ connectDB();
 
 // Middleware
 app.use(helmet()); // Security headers
+app.use(compression()); // Enable gzip compression for faster responses
 
 // CORS configuration - support multiple origins
 const allowedOrigins = [
