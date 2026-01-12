@@ -230,7 +230,7 @@ export const getMe = async (
  * @desc    Logout user (client-side token removal)
  */
 export const logout = async (
-  req: Request,
+  _req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {

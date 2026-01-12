@@ -5,7 +5,6 @@
 
 import mongoose from 'mongoose';
 import User from '../models/User.model.js';
-import Doctor from '../models/Doctor.model.js';
 import dotenv from 'dotenv';
 
 dotenv.config();

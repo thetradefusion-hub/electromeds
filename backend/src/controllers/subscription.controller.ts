@@ -79,7 +79,7 @@ export const getUsageStats = async (
  * @desc    Get all active subscription plans
  */
 export const getSubscriptionPlans = async (
-  req: AuthRequest,
+  _req: AuthRequest,
   res: Response,
   next: NextFunction
 ): Promise<void> => {

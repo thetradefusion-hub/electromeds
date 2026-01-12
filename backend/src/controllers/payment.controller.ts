@@ -2,7 +2,6 @@ import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware.js';
 import Payment from '../models/Payment.model.js';
 import Subscription from '../models/Subscription.model.js';
-import Doctor from '../models/Doctor.model.js';
 import { CustomError } from '../middleware/errorHandler.js';
 
 /**

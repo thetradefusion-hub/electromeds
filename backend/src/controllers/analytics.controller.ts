@@ -5,7 +5,7 @@ import Prescription from '../models/Prescription.model.js';
 import Appointment from '../models/Appointment.model.js';
 import Doctor from '../models/Doctor.model.js';
 import { CustomError } from '../middleware/errorHandler.js';
-import { startOfDay, endOfDay, startOfMonth, endOfMonth, subDays, addDays } from 'date-fns';
+import { startOfDay, endOfDay, addDays } from 'date-fns';
 import mongoose from 'mongoose';
 
 /**
@@ -353,7 +353,7 @@ export const getRevenueAnalytics = async (
       throw new CustomError('Access denied', 403);
     }
 
-    const { startDate, endDate } = req.query;
+    // const { startDate, endDate } = req.query; // Reserved for future use
 
     // This would require Payment model - implement when needed
     res.json({

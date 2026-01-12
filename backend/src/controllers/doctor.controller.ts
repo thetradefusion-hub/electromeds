@@ -9,7 +9,7 @@ import { CustomError } from '../middleware/errorHandler.js';
  * @desc    Get all doctors (public endpoint, no auth required)
  */
 export const getPublicDoctors = async (
-  req: Request,
+  _req: Request,
   res: Response,
   next: NextFunction
 ): Promise<void> => {

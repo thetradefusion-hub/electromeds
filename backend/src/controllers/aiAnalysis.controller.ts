@@ -186,7 +186,7 @@ Important guidelines:
       throw new CustomError('Failed to analyze report', 500);
     }
 
-    const data = await response.json();
+    const data = await response.json() as any;
 
     // Parse response based on provider
     let analysis: any;

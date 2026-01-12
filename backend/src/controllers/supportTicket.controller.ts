@@ -2,7 +2,6 @@ import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth.middleware.js';
 import SupportTicket from '../models/SupportTicket.model.js';
 import Doctor from '../models/Doctor.model.js';
-import User from '../models/User.model.js';
 import { CustomError } from '../middleware/errorHandler.js';
 
 /**
@@ -206,7 +205,7 @@ export const deleteSupportTicket = async (
 ): Promise<void> => {
   try {
     const { id } = req.params;
-    const userId = req.user!.id;
+    // const userId = req.user!.id; // Reserved for future use
     const userRole = req.user!.role;
 
     const ticket = await SupportTicket.findById(id);

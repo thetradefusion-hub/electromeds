@@ -173,7 +173,7 @@ export const createPrescription = async (
       doctorIdToUse = doctor._id;
     }
 
-    const prescriptionNo = await generatePrescriptionNo(doctorIdToUse.toString());
+    const prescriptionNo = await generatePrescriptionNo();
 
     const prescription = await Prescription.create({
       prescriptionNo,
