@@ -7,8 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { Stethoscope, Loader2, ArrowLeft } from 'lucide-react';
+import { Stethoscope, Loader2, ArrowLeft, CheckCircle2, XCircle } from 'lucide-react';
 import { z } from 'zod';
 import { Link } from 'react-router-dom';
 
@@ -21,16 +23,25 @@ const signupSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
   email: z.string().email('Please enter a valid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
+  confirmPassword: z.string().min(6, 'Please confirm your password'),
   phone: z.string().optional(),
-  role: z.enum(['doctor', 'staff']),
+  role: z.enum(['doctor']), // Staff signup removed - only doctor can signup
   registration_no: z.string().optional(),
   qualification: z.string().optional(),
   specialization: z.string().optional(),
+  clinic_name: z.string().min(2, 'Clinic name must be at least 2 characters'),
+  clinic_address: z.string().optional(),
+  termsAccepted: z.boolean().refine((val) => val === true, {
+    message: 'You must accept the Terms & Conditions',
+  }),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ['confirmPassword'],
 });
 
 const Auth = () => {
   const navigate = useNavigate();
-  const { user, signIn, signUp, loading: authLoading } = useAuth();
+  const { user, signIn, signUp, loading: authLoading, role } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -43,17 +54,29 @@ const Auth = () => {
   const [signupName, setSignupName] = useState('');
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [signupPhone, setSignupPhone] = useState('');
-  const [signupRole, setSignupRole] = useState<'doctor' | 'staff'>('doctor');
+  const [signupRole, setSignupRole] = useState<'doctor'>('doctor');
   const [registrationNo, setRegistrationNo] = useState('');
   const [qualification, setQualification] = useState('');
   const [specialization, setSpecialization] = useState('Electro Homoeopathy');
+  const [clinicName, setClinicName] = useState('');
+  const [clinicAddress, setClinicAddress] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
+  // Redirect if already logged in
   useEffect(() => {
-    if (user && !authLoading) {
-      navigate('/');
+    if (user && role && !authLoading) {
+      // Redirect based on role
+      if (role === 'super_admin') {
+        navigate('/admin', { replace: true });
+      } else if (role === 'doctor' || role === 'staff') {
+        navigate('/dashboard', { replace: true });
+      } else {
+        navigate('/', { replace: true });
+      }
     }
-  }, [user, authLoading, navigate]);
+  }, [user, role, authLoading, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,7 +100,7 @@ const Auth = () => {
     setIsLoading(true);
     const { error } = await signIn(loginEmail, loginPassword);
     setIsLoading(false);
-
+    
     if (error) {
       toast({
         title: 'Login Failed',
@@ -91,23 +114,41 @@ const Auth = () => {
         title: 'Welcome back!',
         description: 'You have successfully logged in.',
       });
-      navigate('/');
+      // Navigation will be handled by useEffect when user/role state updates
     }
+  };
+
+  // Phone validation function
+  const validatePhone = (phone: string): boolean => {
+    if (!phone) return true; // Optional field
+    // Indian phone number: 10 digits starting with 6-9, or +91 followed by 10 digits
+    const phoneRegex = /^(\+91[6-9]\d{9}|[6-9]\d{9})$/;
+    return phoneRegex.test(phone.replace(/\s+/g, ''));
   };
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
 
+    // Phone validation
+    if (signupPhone && !validatePhone(signupPhone)) {
+      setErrors(prev => ({ ...prev, signup_phone: 'Please enter a valid Indian phone number (10 digits starting with 6-9)' }));
+      return;
+    }
+
     const signupData = {
       name: signupName,
       email: signupEmail,
       password: signupPassword,
+      confirmPassword,
       phone: signupPhone || undefined,
       role: signupRole,
       registration_no: registrationNo || undefined,
       qualification: qualification || undefined,
       specialization: specialization || undefined,
+      clinic_name: clinicName,
+      clinic_address: clinicAddress || undefined,
+      termsAccepted,
     };
 
     try {
@@ -135,16 +176,24 @@ const Auth = () => {
         setErrors(prev => ({ ...prev, signup_qualification: 'Qualification is required for doctors' }));
         return;
       }
+      if (!clinicName) {
+        setErrors(prev => ({ ...prev, signup_clinic_name: 'Clinic name is required for doctors' }));
+        return;
+      }
     }
 
     setIsLoading(true);
-    const { error } = await signUp(signupEmail, signupPassword, {
+    // Normalize email before sending to backend
+    const normalizedEmail = signupEmail.toLowerCase().trim();
+    const { error } = await signUp(normalizedEmail, signupPassword, {
       name: signupName,
       phone: signupPhone || undefined,
       role: signupRole,
       registration_no: registrationNo || undefined,
       qualification: qualification || undefined,
       specialization: specialization || undefined,
+      clinic_name: clinicName,
+      clinic_address: clinicAddress || undefined,
     });
     setIsLoading(false);
 
@@ -167,7 +216,20 @@ const Auth = () => {
         title: 'Account Created!',
         description: 'Your account has been created successfully.',
       });
-      navigate('/');
+      // Reset form
+      setSignupName('');
+      setSignupEmail('');
+      setSignupPassword('');
+      setConfirmPassword('');
+      setSignupPhone('');
+      setRegistrationNo('');
+      setQualification('');
+      setSpecialization('Electro Homoeopathy');
+      setClinicName('');
+      setClinicAddress('');
+      setTermsAccepted(false);
+      setErrors({});
+      // Navigation will be handled by useEffect when user/role state updates
     }
   };
 
@@ -254,33 +316,19 @@ const Auth = () => {
 
             <TabsContent value="signup">
               <form onSubmit={handleSignup} className="space-y-4 mt-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-name" className="text-sm">Full Name *</Label>
-                    <Input
-                      id="signup-name"
-                      placeholder="Dr. John Doe"
-                      value={signupName}
-                      onChange={(e) => setSignupName(e.target.value)}
-                      required
-                      className="h-11 rounded-xl"
-                    />
-                    {errors.signup_name && (
-                      <p className="text-xs text-destructive">{errors.signup_name}</p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-role" className="text-sm">Role *</Label>
-                    <Select value={signupRole} onValueChange={(v) => setSignupRole(v as 'doctor' | 'staff')}>
-                      <SelectTrigger className="h-11 rounded-xl">
-                        <SelectValue placeholder="Select role" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="doctor">Doctor</SelectItem>
-                        <SelectItem value="staff">Staff</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-name" className="text-sm">Full Name *</Label>
+                  <Input
+                    id="signup-name"
+                    placeholder="Dr. John Doe"
+                    value={signupName}
+                    onChange={(e) => setSignupName(e.target.value)}
+                    required
+                    className="h-11 rounded-xl"
+                  />
+                  {errors.signup_name && (
+                    <p className="text-xs text-destructive">{errors.signup_name}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -299,13 +347,13 @@ const Auth = () => {
                   )}
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-2">
                     <Label htmlFor="signup-password" className="text-sm">Password *</Label>
                     <Input
                       id="signup-password"
                       type="password"
-                      placeholder="••••••••"
+                      placeholder="Minimum 6 characters"
                       value={signupPassword}
                       onChange={(e) => setSignupPassword(e.target.value)}
                       required
@@ -316,62 +364,166 @@ const Auth = () => {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signup-phone" className="text-sm">Phone</Label>
-                    <Input
-                      id="signup-phone"
-                      type="tel"
-                      placeholder="+91 9876543210"
-                      value={signupPhone}
-                      onChange={(e) => setSignupPhone(e.target.value)}
-                      className="h-11 rounded-xl"
-                    />
+                    <Label htmlFor="confirm-password" className="text-sm">Confirm Password *</Label>
+                    <div className="relative">
+                      <Input
+                        id="confirm-password"
+                        type="password"
+                        placeholder="Re-enter password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                        className="h-11 rounded-xl pr-10"
+                      />
+                      {confirmPassword && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          {signupPassword === confirmPassword ? (
+                            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                          ) : (
+                            <XCircle className="h-4 w-4 text-destructive" />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    {errors.signup_confirmPassword && (
+                      <p className="text-xs text-destructive">{errors.signup_confirmPassword}</p>
+                    )}
                   </div>
                 </div>
 
-                {signupRole === 'doctor' && (
-                  <>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-2">
-                        <Label htmlFor="registration-no" className="text-sm">Reg. No. *</Label>
-                        <Input
-                          id="registration-no"
-                          placeholder="MED/2024/001"
-                          value={registrationNo}
-                          onChange={(e) => setRegistrationNo(e.target.value)}
-                          className="h-11 rounded-xl"
-                        />
-                        {errors.signup_registration_no && (
-                          <p className="text-xs text-destructive">{errors.signup_registration_no}</p>
-                        )}
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="qualification" className="text-sm">Qualification *</Label>
-                        <Input
-                          id="qualification"
-                          placeholder="BHMS, MD"
-                          value={qualification}
-                          onChange={(e) => setQualification(e.target.value)}
-                          className="h-11 rounded-xl"
-                        />
-                        {errors.signup_qualification && (
-                          <p className="text-xs text-destructive">{errors.signup_qualification}</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="specialization" className="text-sm">Specialization</Label>
-                      <Input
-                        id="specialization"
-                        placeholder="Electro Homoeopathy"
-                        value={specialization}
-                        onChange={(e) => setSpecialization(e.target.value)}
-                        className="h-11 rounded-xl"
-                      />
-                    </div>
-                  </>
-                )}
+                <div className="space-y-2">
+                  <Label htmlFor="signup-phone" className="text-sm">Phone</Label>
+                  <Input
+                    id="signup-phone"
+                    type="tel"
+                    placeholder="9876543210 or +91 9876543210"
+                    value={signupPhone}
+                    onChange={(e) => {
+                      let value = e.target.value;
+                      // Allow digits, +, and spaces
+                      value = value.replace(/[^\d+\s]/g, '');
+                      // Limit to 13 characters (for +91 9876543210)
+                      if (value.length <= 13) {
+                        setSignupPhone(value);
+                      }
+                    }}
+                    className="h-11 rounded-xl"
+                  />
+                  {signupPhone && !validatePhone(signupPhone) && (
+                    <p className="text-xs text-destructive">
+                      Please enter a valid Indian phone number (10 digits starting with 6-9)
+                    </p>
+                  )}
+                  {errors.signup_phone && (
+                    <p className="text-xs text-destructive">{errors.signup_phone}</p>
+                  )}
+                  {signupPhone && validatePhone(signupPhone) && (
+                    <p className="text-xs text-emerald-500 flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Valid phone number
+                    </p>
+                  )}
+                </div>
 
-                <Button type="submit" className="w-full h-12 rounded-xl text-base" disabled={isLoading}>
+                {/* Doctor-specific fields (staff signup removed) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="registration-no" className="text-sm">Reg. No. *</Label>
+                    <Input
+                      id="registration-no"
+                      placeholder="MED/2024/001"
+                      value={registrationNo}
+                      onChange={(e) => setRegistrationNo(e.target.value)}
+                      className="h-11 rounded-xl"
+                    />
+                    {errors.signup_registration_no && (
+                      <p className="text-xs text-destructive">{errors.signup_registration_no}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="qualification" className="text-sm">Qualification *</Label>
+                    <Input
+                      id="qualification"
+                      placeholder="BHMS, MD"
+                      value={qualification}
+                      onChange={(e) => setQualification(e.target.value)}
+                      className="h-11 rounded-xl"
+                    />
+                    {errors.signup_qualification && (
+                      <p className="text-xs text-destructive">{errors.signup_qualification}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="specialization" className="text-sm">Specialization</Label>
+                  <Input
+                    id="specialization"
+                    placeholder="Electro Homoeopathy"
+                    value={specialization}
+                    onChange={(e) => setSpecialization(e.target.value)}
+                    className="h-11 rounded-xl"
+                  />
+                </div>
+
+                {/* Clinic Information */}
+                <div className="space-y-2">
+                  <Label htmlFor="clinic-name" className="text-sm">Clinic Name *</Label>
+                  <Input
+                    id="clinic-name"
+                    placeholder="Dr. John's Clinic"
+                    value={clinicName}
+                    onChange={(e) => setClinicName(e.target.value)}
+                    required
+                    className="h-11 rounded-xl"
+                  />
+                  {errors.signup_clinic_name && (
+                    <p className="text-xs text-destructive">{errors.signup_clinic_name}</p>
+                  )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="clinic-address" className="text-sm">Clinic Address</Label>
+                  <Textarea
+                    id="clinic-address"
+                    placeholder="Enter complete clinic address"
+                    value={clinicAddress}
+                    onChange={(e) => setClinicAddress(e.target.value)}
+                    rows={3}
+                    className="rounded-xl resize-none"
+                  />
+                </div>
+
+                {/* Terms & Conditions */}
+                <div className="flex items-start gap-3 p-4 rounded-xl bg-muted/50 border border-border">
+                  <Checkbox
+                    id="terms-accepted"
+                    checked={termsAccepted}
+                    onCheckedChange={(checked) => setTermsAccepted(checked === true)}
+                    className="mt-0.5"
+                  />
+                  <div className="flex-1 space-y-1">
+                    <Label htmlFor="terms-accepted" className="text-sm font-normal cursor-pointer">
+                      I agree to the{' '}
+                      <Link to="/terms" className="text-primary hover:underline font-medium">
+                        Terms & Conditions
+                      </Link>
+                      {' '}and{' '}
+                      <Link to="/privacy" className="text-primary hover:underline font-medium">
+                        Privacy Policy
+                      </Link>
+                      {' '}*
+                    </Label>
+                    {errors.signup_termsAccepted && (
+                      <p className="text-xs text-destructive">{errors.signup_termsAccepted}</p>
+                    )}
+                  </div>
+                </div>
+
+                <Button 
+                  type="submit" 
+                  className="w-full h-12 rounded-xl text-base" 
+                  disabled={isLoading || !termsAccepted}
+                >
                   {isLoading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />

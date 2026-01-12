@@ -1,8 +1,50 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useDoctor } from './useDoctor';
 import { toast } from 'sonner';
-import { format, addMinutes, parse, isBefore, startOfDay } from 'date-fns';
+import { format, addMinutes, parse, isBefore } from 'date-fns';
+import { appointmentApi, Appointment as BackendAppointment, DoctorAvailability as BackendAvailability, BlockedDate as BackendBlockedDate } from '@/lib/api/appointment.api';
+
+// Map backend types to frontend format
+const mapAppointment = (apt: BackendAppointment) => {
+  const patient = typeof apt.patientId === 'object' ? apt.patientId : null;
+  
+  return {
+    id: apt._id,
+    doctor_id: apt.doctorId,
+    patient_id: typeof apt.patientId === 'string' ? apt.patientId : null,
+    patient_name: apt.patientName || null,
+    patient_mobile: apt.patientMobile || null,
+    appointment_date: apt.appointmentDate,
+    time_slot: apt.timeSlot,
+    status: apt.status,
+    notes: apt.notes || null,
+    booking_type: apt.bookingType,
+    created_at: apt.createdAt,
+    patient: patient ? {
+      id: patient._id,
+      name: patient.name,
+      patient_id: patient.patientId,
+      mobile: patient.mobile,
+    } : undefined,
+  };
+};
+
+const mapAvailability = (av: BackendAvailability) => ({
+  id: av._id,
+  doctor_id: av.doctorId,
+  day_of_week: av.dayOfWeek,
+  start_time: av.startTime,
+  end_time: av.endTime,
+  slot_duration: av.slotDuration,
+  is_active: av.isActive,
+});
+
+const mapBlockedDate = (bd: BackendBlockedDate) => ({
+  id: bd._id,
+  doctor_id: bd.doctorId,
+  blocked_date: bd.blockedDate,
+  reason: bd.reason || null,
+});
 
 export interface Appointment {
   id: string;
@@ -50,23 +92,21 @@ export const useAppointments = (date?: Date) => {
     queryFn: async () => {
       if (!doctorId) return [];
       
-      let query = supabase
-        .from('appointments')
-        .select(`
-          *,
-          patient:patients(id, name, patient_id, mobile)
-        `)
-        .eq('doctor_id', doctorId)
-        .order('appointment_date', { ascending: true })
-        .order('time_slot', { ascending: true });
-
-      if (date) {
-        query = query.eq('appointment_date', format(date, 'yyyy-MM-dd'));
+      try {
+        const params: { date?: string } = {};
+        if (date) {
+          params.date = format(date, 'yyyy-MM-dd');
+        }
+        
+        const response = await appointmentApi.getAppointments(params);
+        if (response.success && response.data) {
+          return response.data.map(mapAppointment);
+        }
+        return [];
+      } catch (error) {
+        console.error('Error fetching appointments:', error);
+        return [];
       }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as Appointment[];
     },
     enabled: !!doctorId,
   });
@@ -75,13 +115,16 @@ export const useAppointments = (date?: Date) => {
     queryKey: ['doctor-availability', doctorId],
     queryFn: async () => {
       if (!doctorId) return [];
-      const { data, error } = await supabase
-        .from('doctor_availability')
-        .select('*')
-        .eq('doctor_id', doctorId)
-        .order('day_of_week');
-      if (error) throw error;
-      return data as DoctorAvailability[];
+      try {
+        const response = await appointmentApi.getAvailability();
+        if (response.success && response.data) {
+          return response.data.map(mapAvailability);
+        }
+        return [];
+      } catch (error) {
+        console.error('Error fetching availability:', error);
+        return [];
+      }
     },
     enabled: !!doctorId,
   });
@@ -90,13 +133,18 @@ export const useAppointments = (date?: Date) => {
     queryKey: ['blocked-dates', doctorId],
     queryFn: async () => {
       if (!doctorId) return [];
-      const { data, error } = await supabase
-        .from('blocked_dates')
-        .select('*')
-        .eq('doctor_id', doctorId)
-        .gte('blocked_date', format(new Date(), 'yyyy-MM-dd'));
-      if (error) throw error;
-      return data as BlockedDate[];
+      try {
+        const response = await appointmentApi.getBlockedDates({
+          startDate: format(new Date(), 'yyyy-MM-dd'),
+        });
+        if (response.success && response.data) {
+          return response.data.map(mapBlockedDate);
+        }
+        return [];
+      } catch (error) {
+        console.error('Error fetching blocked dates:', error);
+        return [];
+      }
     },
     enabled: !!doctorId,
   });
@@ -111,99 +159,122 @@ export const useAppointments = (date?: Date) => {
       notes?: string;
       booking_type?: 'online' | 'walk_in' | 'phone';
     }) => {
-      if (!doctorId) throw new Error('Doctor not found');
-      const { error } = await supabase.from('appointments').insert({
-        doctor_id: doctorId,
-        ...data,
+      const response = await appointmentApi.createAppointment({
+        patientId: data.patient_id,
+        patientName: data.patient_name,
+        patientMobile: data.patient_mobile,
+        appointmentDate: data.appointment_date,
+        timeSlot: data.time_slot,
+        notes: data.notes,
+        bookingType: data.booking_type || 'walk_in',
       });
-      if (error) throw error;
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to create appointment');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       toast.success('Appointment booked successfully');
     },
-    onError: (error) => {
-      toast.error('Failed to book appointment: ' + error.message);
+    onError: (error: any) => {
+      toast.error('Failed to book appointment: ' + (error.response?.data?.message || error.message));
     },
   });
 
   const updateAppointment = useMutation({
     mutationFn: async ({ id, ...data }: Partial<Appointment> & { id: string }) => {
-      const { error } = await supabase
-        .from('appointments')
-        .update(data)
-        .eq('id', id);
-      if (error) throw error;
+      const response = await appointmentApi.updateAppointment(id, {
+        appointmentDate: data.appointment_date,
+        timeSlot: data.time_slot,
+        status: data.status,
+        notes: data.notes,
+        bookingType: data.booking_type,
+      });
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to update appointment');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       toast.success('Appointment updated');
     },
-    onError: (error) => {
-      toast.error('Failed to update: ' + error.message);
+    onError: (error: any) => {
+      toast.error('Failed to update: ' + (error.response?.data?.message || error.message));
     },
   });
 
   const cancelAppointment = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('appointments')
-        .update({ status: 'cancelled' })
-        .eq('id', id);
-      if (error) throw error;
+      const response = await appointmentApi.updateAppointment(id, { status: 'cancelled' });
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to cancel appointment');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       toast.success('Appointment cancelled');
     },
+    onError: (error: any) => {
+      toast.error('Failed to cancel: ' + (error.response?.data?.message || error.message));
+    },
   });
 
   const saveAvailability = useMutation({
     mutationFn: async (slots: Omit<DoctorAvailability, 'id' | 'doctor_id'>[]) => {
-      if (!doctorId) throw new Error('Doctor not found');
-      
-      // Delete existing and insert new
-      await supabase.from('doctor_availability').delete().eq('doctor_id', doctorId);
-      
-      if (slots.length > 0) {
-        const { error } = await supabase.from('doctor_availability').insert(
-          slots.map((slot) => ({ ...slot, doctor_id: doctorId }))
-        );
-        if (error) throw error;
-      }
+      // Save each slot individually
+      await Promise.all(
+        slots.map((slot) =>
+          appointmentApi.setAvailability({
+            dayOfWeek: slot.day_of_week,
+            startTime: slot.start_time,
+            endTime: slot.end_time,
+            slotDuration: slot.slot_duration,
+            isActive: slot.is_active,
+          })
+        )
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['doctor-availability'] });
       toast.success('Availability saved');
     },
-    onError: (error) => {
-      toast.error('Failed to save: ' + error.message);
+    onError: (error: any) => {
+      toast.error('Failed to save: ' + (error.response?.data?.message || error.message));
     },
   });
 
   const addBlockedDate = useMutation({
     mutationFn: async (data: { blocked_date: string; reason?: string }) => {
-      if (!doctorId) throw new Error('Doctor not found');
-      const { error } = await supabase.from('blocked_dates').insert({
-        doctor_id: doctorId,
-        ...data,
+      const response = await appointmentApi.blockDate({
+        blockedDate: data.blocked_date,
+        reason: data.reason,
       });
-      if (error) throw error;
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to block date');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['blocked-dates'] });
       toast.success('Date blocked');
     },
+    onError: (error: any) => {
+      toast.error('Failed to block date: ' + (error.response?.data?.message || error.message));
+    },
   });
 
   const removeBlockedDate = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('blocked_dates').delete().eq('id', id);
-      if (error) throw error;
+      const response = await appointmentApi.unblockDate(id);
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to unblock date');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['blocked-dates'] });
       toast.success('Block removed');
+    },
+    onError: (error: any) => {
+      toast.error('Failed to remove block: ' + (error.response?.data?.message || error.message));
     },
   });
 
@@ -218,8 +289,8 @@ export const useAppointments = (date?: Date) => {
     if (isBlocked) return [];
 
     const slots: string[] = [];
-    const start = parse(dayAvailability.start_time, 'HH:mm:ss', new Date());
-    const end = parse(dayAvailability.end_time, 'HH:mm:ss', new Date());
+    const start = parse(dayAvailability.start_time, 'HH:mm', new Date());
+    const end = parse(dayAvailability.end_time, 'HH:mm', new Date());
     const duration = dayAvailability.slot_duration;
 
     let current = start;
@@ -272,13 +343,17 @@ export const usePublicBooking = (doctorId: string) => {
   const { data: availability = [] } = useQuery({
     queryKey: ['public-availability', doctorId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('doctor_availability')
-        .select('*')
-        .eq('doctor_id', doctorId)
-        .eq('is_active', true);
-      if (error) throw error;
-      return data as DoctorAvailability[];
+      if (!doctorId) return [];
+      try {
+        // For public booking, we need to fetch availability without auth
+        // This would require a public endpoint or we use the appointment API
+        // For now, we'll need to handle this differently
+        // TODO: Create public availability endpoint
+        return [];
+      } catch (error) {
+        console.error('Error fetching public availability:', error);
+        return [];
+      }
     },
     enabled: !!doctorId,
   });
@@ -286,25 +361,34 @@ export const usePublicBooking = (doctorId: string) => {
   const { data: blockedDates = [] } = useQuery({
     queryKey: ['public-blocked-dates', doctorId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('blocked_dates')
-        .select('*')
-        .eq('doctor_id', doctorId)
-        .gte('blocked_date', format(new Date(), 'yyyy-MM-dd'));
-      if (error) throw error;
-      return data as BlockedDate[];
+      if (!doctorId) return [];
+      try {
+        // TODO: Create public blocked dates endpoint
+        return [];
+      } catch (error) {
+        console.error('Error fetching public blocked dates:', error);
+        return [];
+      }
     },
     enabled: !!doctorId,
   });
 
-  const getBookedSlots = async (date: Date) => {
-    const { data } = await supabase
-      .from('appointments')
-      .select('time_slot')
-      .eq('doctor_id', doctorId)
-      .eq('appointment_date', format(date, 'yyyy-MM-dd'))
-      .neq('status', 'cancelled');
-    return data?.map((a) => a.time_slot) || [];
+  const getBookedSlots = async (date: Date): Promise<string[]> => {
+    if (!doctorId) return [];
+    try {
+      const response = await appointmentApi.getAppointments({
+        date: format(date, 'yyyy-MM-dd'),
+      });
+      if (response.success && response.data) {
+        return response.data
+          .filter((apt) => apt.status !== 'cancelled')
+          .map((apt) => apt.timeSlot);
+      }
+      return [];
+    } catch (error) {
+      console.error('Error fetching booked slots:', error);
+      return [];
+    }
   };
 
   const bookAppointment = useMutation({
@@ -315,26 +399,31 @@ export const usePublicBooking = (doctorId: string) => {
       time_slot: string;
       notes?: string;
     }) => {
-      const { error } = await supabase.from('appointments').insert({
-        doctor_id: doctorId,
-        booking_type: 'online',
+      const response = await appointmentApi.createAppointment({
+        patientName: data.patient_name,
+        patientMobile: data.patient_mobile,
+        appointmentDate: data.appointment_date,
+        timeSlot: data.time_slot,
+        notes: data.notes,
+        bookingType: 'online',
         status: 'pending',
-        ...data,
       });
-      if (error) throw error;
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to book appointment');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['public-appointments'] });
       toast.success('Appointment request submitted!');
     },
-    onError: (error) => {
-      toast.error('Booking failed: ' + error.message);
+    onError: (error: any) => {
+      toast.error('Booking failed: ' + (error.response?.data?.message || error.message));
     },
   });
 
   return {
-    availability,
-    blockedDates,
+    availability: availability.map(mapAvailability),
+    blockedDates: blockedDates.map(mapBlockedDate),
     getBookedSlots,
     bookAppointment: bookAppointment.mutateAsync,
     isBooking: bookAppointment.isPending,

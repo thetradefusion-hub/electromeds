@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { TrendingUp, TrendingDown, DollarSign, CreditCard, Users, Calendar } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
+import { BarChart as BarChartIcon } from 'lucide-react';
 import { Payment } from '@/hooks/useSaasAdmin';
 import { format, subMonths, startOfMonth, endOfMonth, eachMonthOfInterval } from 'date-fns';
 
@@ -73,77 +74,92 @@ export default function RevenueAnalytics({ payments, revenueStats, subscriptions
 
   return (
     <div className="space-y-6">
-      {/* Stats Cards */}
+      {/* Enhanced Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="relative overflow-hidden border-primary/20 bg-gradient-to-br from-primary/5 to-primary/0 hover:shadow-lg transition-all duration-300">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+          <CardContent className="pt-6 relative z-10">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Total Revenue</p>
-                <p className="text-2xl font-bold">{formatCurrency(revenueStats?.totalRevenue || 0)}</p>
+                <p className="text-sm text-muted-foreground mb-1">Total Revenue</p>
+                <p className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                  {formatCurrency(revenueStats?.totalRevenue || 0)}
+                </p>
               </div>
-              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                <DollarSign className="h-6 w-6 text-primary" />
+              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-lg">
+                <DollarSign className="h-6 w-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="relative overflow-hidden border-emerald-500/20 bg-gradient-to-br from-emerald-500/5 to-emerald-500/0 hover:shadow-lg transition-all duration-300">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+          <CardContent className="pt-6 relative z-10">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">This Month</p>
-                <p className="text-2xl font-bold">{formatCurrency(revenueStats?.thisMonthRevenue || 0)}</p>
-                <div className={`flex items-center gap-1 text-sm ${growthIsPositive ? 'text-success' : 'text-destructive'}`}>
-                  {growthIsPositive ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                  <span>{revenueStats?.growthRate}% vs last month</span>
+                <p className="text-sm text-muted-foreground mb-1">This Month</p>
+                <p className="text-2xl font-bold bg-gradient-to-r from-emerald-500 to-emerald-600 bg-clip-text text-transparent">
+                  {formatCurrency(revenueStats?.thisMonthRevenue || 0)}
+                </p>
+                <div className={`flex items-center gap-1 text-xs mt-1 ${growthIsPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-destructive'}`}>
+                  {growthIsPositive ? <TrendingUp className="h-3.5 w-3.5" /> : <TrendingDown className="h-3.5 w-3.5" />}
+                  <span className="font-medium">{revenueStats?.growthRate}% vs last month</span>
                 </div>
               </div>
-              <div className="h-12 w-12 rounded-full bg-success/10 flex items-center justify-center">
-                <Calendar className="h-6 w-6 text-success" />
+              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg">
+                <Calendar className="h-6 w-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="relative overflow-hidden border-blue-500/20 bg-gradient-to-br from-blue-500/5 to-blue-500/0 hover:shadow-lg transition-all duration-300">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+          <CardContent className="pt-6 relative z-10">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Active Subscribers</p>
-                <p className="text-2xl font-bold">{subscriptionsCount}</p>
+                <p className="text-sm text-muted-foreground mb-1">Active Subscribers</p>
+                <p className="text-2xl font-bold bg-gradient-to-r from-blue-500 to-blue-600 bg-clip-text text-transparent">
+                  {subscriptionsCount}
+                </p>
               </div>
-              <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center">
-                <Users className="h-6 w-6 text-accent" />
+              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+                <Users className="h-6 w-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="pt-6">
+        <Card className="relative overflow-hidden border-purple-500/20 bg-gradient-to-br from-purple-500/5 to-purple-500/0 hover:shadow-lg transition-all duration-300">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+          <CardContent className="pt-6 relative z-10">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Total Transactions</p>
-                <p className="text-2xl font-bold">{revenueStats?.totalTransactions || 0}</p>
+                <p className="text-sm text-muted-foreground mb-1">Total Transactions</p>
+                <p className="text-2xl font-bold bg-gradient-to-r from-purple-500 to-purple-600 bg-clip-text text-transparent">
+                  {revenueStats?.totalTransactions || 0}
+                </p>
               </div>
-              <div className="h-12 w-12 rounded-full bg-secondary flex items-center justify-center">
-                <CreditCard className="h-6 w-6 text-secondary-foreground" />
+              <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center shadow-lg">
+                <CreditCard className="h-6 w-6 text-white" />
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Charts */}
+      {/* Enhanced Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Revenue Trend */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Revenue Trend</CardTitle>
+        <Card className="lg:col-span-2 border-border/50 shadow-sm hover:shadow-md transition-shadow">
+          <CardHeader className="border-b border-border/50">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-primary" />
+              Revenue Trend
+            </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={monthlyData}>
@@ -179,11 +195,14 @@ export default function RevenueAnalytics({ payments, revenueStats, subscriptions
         </Card>
 
         {/* Payment Status Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Payment Status</CardTitle>
+        <Card className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
+          <CardHeader className="border-b border-border/50">
+            <CardTitle className="text-lg font-semibold flex items-center gap-2">
+              <CreditCard className="h-5 w-5 text-primary" />
+              Payment Status
+            </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="pt-6">
             <div className="h-80">
               {statusData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
@@ -217,11 +236,14 @@ export default function RevenueAnalytics({ payments, revenueStats, subscriptions
       </div>
 
       {/* Monthly Transactions */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Monthly Transactions</CardTitle>
+      <Card className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
+        <CardHeader className="border-b border-border/50">
+          <CardTitle className="text-lg font-semibold flex items-center gap-2">
+            <BarChartIcon className="h-5 w-5 text-primary" />
+            Monthly Transactions
+          </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthlyData}>

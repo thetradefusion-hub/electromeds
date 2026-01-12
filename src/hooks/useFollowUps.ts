@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import { useState, useEffect } from 'react';
+import { useDoctor } from './useDoctor';
+import { prescriptionApi } from '@/lib/api/prescription.api';
 import { isBefore, startOfDay } from 'date-fns';
 
 interface FollowUp {
@@ -17,110 +17,77 @@ interface FollowUp {
 }
 
 export function useFollowUps() {
-  const { user } = useAuth();
-  const [doctorId, setDoctorId] = useState<string | null>(null);
+  const { doctorId } = useDoctor();
   const queryClient = useQueryClient();
-
-  useEffect(() => {
-    const fetchDoctorId = async () => {
-      if (!user) return;
-      
-      const { data, error } = await supabase
-        .from('doctors')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      
-      if (error) {
-        console.error('Error fetching doctor:', error);
-        return;
-      }
-      
-      setDoctorId(data?.id ?? null);
-    };
-
-    fetchDoctorId();
-  }, [user]);
 
   const { data: followUps = [], isLoading } = useQuery({
     queryKey: ['follow-ups', doctorId],
     queryFn: async (): Promise<FollowUp[]> => {
       if (!doctorId) return [];
 
-      const { data, error } = await supabase
-        .from('prescriptions')
-        .select(`
-          id,
-          prescription_no,
-          follow_up_date,
-          diagnosis,
-          patient_id,
-          patients (
-            id,
-            name,
-            mobile,
-            patient_id
-          )
-        `)
-        .eq('doctor_id', doctorId)
-        .not('follow_up_date', 'is', null)
-        .order('follow_up_date', { ascending: true });
+      try {
+        const response = await prescriptionApi.getPrescriptions();
+        if (!response.success || !response.data) return [];
 
-      if (error) {
+        const today = startOfDay(new Date());
+
+        return response.data
+          .filter((rx) => rx.followUpDate)
+          .map((prescription) => {
+            const followUpDate = new Date(prescription.followUpDate!);
+            const isPast = isBefore(followUpDate, today);
+            const patient = typeof prescription.patientId === 'object' ? prescription.patientId : null;
+            
+            return {
+              id: prescription._id,
+              prescriptionNo: prescription.prescriptionNo,
+              followUpDate,
+              diagnosis: prescription.diagnosis || null,
+              patientId: typeof prescription.patientId === 'string' ? prescription.patientId : patient?._id || '',
+              patientName: patient?.name || 'Unknown',
+              patientMobile: patient?.mobile || '',
+              patientPatientId: patient?.patientId || '',
+              status: isPast ? 'missed' : 'pending',
+            };
+          })
+          .sort((a, b) => a.followUpDate.getTime() - b.followUpDate.getTime());
+      } catch (error) {
         console.error('Error fetching follow-ups:', error);
-        throw error;
+        return [];
       }
-
-      const today = startOfDay(new Date());
-
-      return (data || []).map((prescription: any) => {
-        const followUpDate = new Date(prescription.follow_up_date);
-        const isPast = isBefore(followUpDate, today);
-        
-        return {
-          id: prescription.id,
-          prescriptionNo: prescription.prescription_no,
-          followUpDate,
-          diagnosis: prescription.diagnosis,
-          patientId: prescription.patient_id,
-          patientName: prescription.patients?.name || 'Unknown',
-          patientMobile: prescription.patients?.mobile || '',
-          patientPatientId: prescription.patients?.patient_id || '',
-          status: isPast ? 'missed' : 'pending',
-        };
-      });
     },
     enabled: !!doctorId,
   });
 
   const markCompleteMutation = useMutation({
     mutationFn: async (prescriptionId: string) => {
-      // Clear the follow-up date to mark as completed
-      const { error } = await supabase
-        .from('prescriptions')
-        .update({ follow_up_date: null })
-        .eq('id', prescriptionId);
-
-      if (error) throw error;
+      const response = await prescriptionApi.updatePrescription(prescriptionId, {
+        followUpDate: undefined,
+      });
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to mark as complete');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['follow-ups', doctorId] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats', doctorId] });
+      queryClient.invalidateQueries({ queryKey: ['prescriptions'] });
     },
   });
 
   const cancelFollowUpMutation = useMutation({
     mutationFn: async (prescriptionId: string) => {
-      const { error } = await supabase
-        .from('prescriptions')
-        .update({ follow_up_date: null })
-        .eq('id', prescriptionId);
-
-      if (error) throw error;
+      const response = await prescriptionApi.updatePrescription(prescriptionId, {
+        followUpDate: undefined,
+      });
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to cancel follow-up');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['follow-ups', doctorId] });
       queryClient.invalidateQueries({ queryKey: ['dashboard-stats', doctorId] });
+      queryClient.invalidateQueries({ queryKey: ['prescriptions'] });
     },
   });
 

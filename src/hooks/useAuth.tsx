@@ -1,12 +1,12 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import { authApi, User } from '@/lib/api/auth.api';
+import { toast } from 'sonner';
 
 type AppRole = 'super_admin' | 'doctor' | 'staff';
 
 interface AuthContextType {
   user: User | null;
-  session: Session | null;
+  session: { token: string } | null;
   role: AppRole | null;
   loading: boolean;
   signUp: (email: string, password: string, metadata: SignUpMetadata) => Promise<{ error: Error | null }>;
@@ -21,93 +21,141 @@ interface SignUpMetadata {
   registration_no?: string;
   qualification?: string;
   specialization?: string;
+  clinic_name?: string;
+  clinic_address?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<{ token: string } | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+    // Check for existing token on mount
+    const token = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
+
+    if (token && storedUser) {
+      try {
+        const userData = JSON.parse(storedUser);
+        setUser(userData);
+        setSession({ token });
+        setRole(userData.role as AppRole);
         
-        // Defer role fetching with setTimeout to avoid deadlock
-        if (session?.user) {
-          setTimeout(() => {
-            fetchUserRole(session.user.id);
-          }, 0);
-        } else {
-          setRole(null);
-        }
+        // Verify token is still valid and get full user data (including assignedDoctorId)
+        authApi.getMe()
+          .then((response) => {
+            if (response.success && response.data) {
+              const fullUserData = response.data.user;
+              localStorage.setItem('user', JSON.stringify(fullUserData));
+              setUser(fullUserData);
+            }
+          })
+          .catch(() => {
+            // Token invalid, clear storage
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            setUser(null);
+            setSession(null);
+            setRole(null);
+          });
+      } catch (error) {
+        console.error('Error parsing stored user:', error);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
       }
-    );
-
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        fetchUserRole(session.user.id);
-      }
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    }
+    
+    setLoading(false);
   }, []);
 
-  const fetchUserRole = async (userId: string) => {
+  const signUp = async (email: string, password: string, metadata: SignUpMetadata) => {
     try {
-      const { data, error } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .single();
+      const response = await authApi.signUp({
+        email,
+        password,
+        name: metadata.name,
+        phone: metadata.phone,
+        role: metadata.role,
+        registration_no: metadata.registration_no,
+        qualification: metadata.qualification,
+        specialization: metadata.specialization,
+        clinic_name: metadata.clinic_name,
+        clinic_address: metadata.clinic_address,
+      });
 
-      if (error) throw error;
-      setRole(data?.role as AppRole);
-    } catch (error) {
-      console.error('Error fetching user role:', error);
-      setRole(null);
+      if (response.success && response.data) {
+        const { token, user: userData } = response.data;
+        localStorage.setItem('token', token);
+        localStorage.setItem('user', JSON.stringify(userData));
+        setUser(userData);
+        setSession({ token });
+        setRole(userData.role as AppRole);
+        toast.success('Registration successful!');
+        return { error: null };
+      } else {
+        const errorMessage = response.message || 'Registration failed';
+        toast.error(errorMessage);
+        return { error: new Error(errorMessage) };
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || 'Registration failed';
+      toast.error(errorMessage);
+      return { error: new Error(errorMessage) };
     }
   };
 
-  const signUp = async (email: string, password: string, metadata: SignUpMetadata) => {
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: metadata
-      }
-    });
-
-    return { error: error as Error | null };
-  };
-
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    });
+    try {
+      const response = await authApi.login({ email, password });
 
-    return { error: error as Error | null };
+      if (response.success && response.data) {
+        const { token, user: userData } = response.data;
+        localStorage.setItem('token', token);
+        
+        // Get full user data including assignedDoctorId
+        try {
+          const meResponse = await authApi.getMe();
+          if (meResponse.success && meResponse.data) {
+            const fullUserData = meResponse.data.user;
+            localStorage.setItem('user', JSON.stringify(fullUserData));
+            setUser(fullUserData);
+          } else {
+            localStorage.setItem('user', JSON.stringify(userData));
+            setUser(userData);
+          }
+        } catch (error) {
+          // If getMe fails, use login response data
+          localStorage.setItem('user', JSON.stringify(userData));
+          setUser(userData);
+        }
+        
+        setSession({ token });
+        setRole(userData.role as AppRole);
+        toast.success('Login successful!');
+        return { error: null };
+      } else {
+        const errorMessage = response.message || 'Login failed';
+        toast.error(errorMessage);
+        return { error: new Error(errorMessage) };
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.message || error.message || 'Login failed';
+      toast.error(errorMessage);
+      return { error: new Error(errorMessage) };
+    }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
     setUser(null);
     setSession(null);
     setRole(null);
+    toast.success('Logged out successfully');
   };
 
   return (

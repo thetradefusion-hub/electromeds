@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
@@ -15,6 +15,11 @@ import {
   BookOpen,
   Shield,
   HeartPulse,
+  TrendingUp,
+  Clock,
+  Sparkles,
+  UserCog,
+  CreditCard,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
@@ -27,18 +32,38 @@ interface NavItem {
   roles?: ('super_admin' | 'doctor' | 'staff')[];
 }
 
-const navItems: NavItem[] = [
-  { icon: LayoutDashboard, labelKey: 'nav.dashboard', path: '/' },
+// Doctor/Staff navigation items
+const doctorNavItems: NavItem[] = [
+  { icon: LayoutDashboard, labelKey: 'nav.dashboard', path: '/dashboard' },
   { icon: Users, labelKey: 'nav.patients', path: '/patients' },
   { icon: CalendarCheck, labelKey: 'nav.appointments', path: '/appointments' },
-  { icon: Stethoscope, labelKey: 'nav.consultation', path: '/consultation', roles: ['super_admin', 'doctor'] },
-  { icon: FileText, labelKey: 'nav.prescriptions', path: '/prescriptions', roles: ['super_admin', 'doctor'] },
-  { icon: HeartPulse, labelKey: 'nav.symptoms', path: '/symptoms', roles: ['super_admin', 'doctor'] },
-  { icon: Pill, labelKey: 'nav.medicines', path: '/medicines', roles: ['super_admin', 'doctor'] },
-  { icon: BookOpen, labelKey: 'nav.rulesEngine', path: '/rules', roles: ['super_admin', 'doctor'] },
-  { icon: Activity, labelKey: 'nav.analytics', path: '/analytics', roles: ['super_admin', 'doctor'] },
-  { icon: Shield, labelKey: 'nav.superAdmin', path: '/admin', roles: ['super_admin'] },
+  { icon: UserCog, labelKey: 'nav.staffManagement', path: '/staff-management', roles: ['doctor'] },
+  { icon: Stethoscope, labelKey: 'nav.consultation', path: '/consultation', roles: ['doctor'] },
+  { icon: FileText, labelKey: 'nav.prescriptions', path: '/prescriptions', roles: ['doctor'] },
+  { icon: HeartPulse, labelKey: 'nav.symptoms', path: '/symptoms', roles: ['doctor'] },
+  { icon: Pill, labelKey: 'nav.medicines', path: '/medicines', roles: ['doctor'] },
+  { icon: BookOpen, labelKey: 'nav.rulesEngine', path: '/rules', roles: ['doctor'] },
+  { icon: Activity, labelKey: 'nav.analytics', path: '/analytics', roles: ['doctor'] },
+];
+
+// Admin navigation items
+const adminNavItems: NavItem[] = [
+  { icon: LayoutDashboard, labelKey: 'nav.adminDashboard', path: '/admin' },
+  { icon: Clock, labelKey: 'nav.activity', path: '/admin#activity', roles: ['super_admin'] },
+  { icon: TrendingUp, labelKey: 'nav.performance', path: '/admin#performance', roles: ['super_admin'] },
+  { icon: Users, labelKey: 'nav.doctors', path: '/admin#doctors', roles: ['super_admin'] },
+  { icon: Stethoscope, labelKey: 'nav.symptoms', path: '/admin#symptoms', roles: ['super_admin'] },
+  { icon: Pill, labelKey: 'nav.medicines', path: '/admin#medicines', roles: ['super_admin'] },
+  { icon: BookOpen, labelKey: 'nav.rules', path: '/admin#rules', roles: ['super_admin'] },
+  { icon: Shield, labelKey: 'nav.userRoles', path: '/admin#roles', roles: ['super_admin'] },
+  { icon: Sparkles, labelKey: 'nav.aiSettings', path: '/admin#ai-settings', roles: ['super_admin'] },
+  { icon: CreditCard, labelKey: 'nav.subscriptions', path: '/admin#subscriptions', roles: ['super_admin'] },
   { icon: Activity, labelKey: 'nav.saasAdmin', path: '/saas-admin', roles: ['super_admin'] },
+];
+
+const navItems: NavItem[] = [
+  ...doctorNavItems,
+  ...adminNavItems,
 ];
 
 const bottomNavItems: NavItem[] = [
@@ -48,12 +73,14 @@ const bottomNavItems: NavItem[] = [
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const { role, signOut } = useAuth();
   const { t } = useTranslation();
 
-  const visibleNavItems = navItems.filter(
-    (item) => !item.roles || (role && item.roles.includes(role))
-  );
+  // Show different navigation based on role
+  const visibleNavItems = role === 'super_admin' 
+    ? adminNavItems.filter((item) => !item.roles || (role && item.roles.includes(role)))
+    : doctorNavItems.filter((item) => !item.roles || (role && item.roles.includes(role)));
 
   return (
     <aside
@@ -97,13 +124,27 @@ export function Sidebar() {
 
         <nav className="flex-1 space-y-1 overflow-y-auto p-3 scrollbar-thin">
           {visibleNavItems.map((item) => {
-            const isActive = location.pathname === item.path;
+            // Check if active - handle hash routes for admin tabs
+            const isActive = item.path.includes('#') 
+              ? location.pathname === item.path.split('#')[0] && location.hash === `#${item.path.split('#')[1]}`
+              : location.pathname === item.path && !location.hash;
+            
+            // Handle click for /admin to ensure navigation works
+            const handleClick = (e: React.MouseEvent) => {
+              if (item.path === '/admin' && location.pathname === '/admin') {
+                // If already on /admin, navigate to clear hash
+                e.preventDefault();
+                navigate('/admin', { replace: true });
+              }
+            };
+
             return (
               <Link
                 key={item.path}
                 to={item.path}
+                onClick={handleClick}
                 className={cn(
-                  'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200',
+                  'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 cursor-pointer',
                   isActive
                     ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm'
                     : 'text-sidebar-foreground/80 hover:bg-sidebar-accent hover:text-sidebar-foreground'

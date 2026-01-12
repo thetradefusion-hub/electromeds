@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { adminApi } from '@/lib/api/admin.api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,15 +14,15 @@ import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Medicine {
-  id: string;
+  _id: string;
   name: string;
   category: string;
-  indications: string | null;
-  default_dosage: string | null;
-  contra_indications: string | null;
-  notes: string | null;
-  is_global: boolean;
-  created_at: string;
+  indications?: string;
+  defaultDosage?: string;
+  contraIndications?: string;
+  notes?: string;
+  isGlobal: boolean;
+  createdAt: string;
 }
 
 const MEDICINE_CATEGORIES = [
@@ -58,79 +58,90 @@ const MedicinesManagement = () => {
   const { data: medicines, isLoading } = useQuery({
     queryKey: ['admin-medicines'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('medicines')
-        .select('*')
-        .eq('is_global', true)
-        .order('category', { ascending: true })
-        .order('name', { ascending: true });
-
-      if (error) throw error;
-      return data as Medicine[];
+      const response = await adminApi.getGlobalMedicines();
+      if (response.success && response.data) {
+        return response.data.map((m) => ({
+          _id: m._id,
+          name: m.name,
+          category: m.category,
+          indications: m.indications,
+          defaultDosage: m.defaultDosage,
+          contraIndications: m.contraIndications,
+          notes: m.notes,
+          isGlobal: m.isGlobal,
+          createdAt: m.createdAt,
+        }));
+      }
+      return [];
     },
   });
 
   const addMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      const { error } = await supabase.from('medicines').insert({
+      const response = await adminApi.createGlobalMedicine({
         name: data.name,
         category: data.category,
-        indications: data.indications || null,
-        default_dosage: data.default_dosage || null,
-        contra_indications: data.contra_indications || null,
-        notes: data.notes || null,
-        is_global: true,
+        indications: data.indications || undefined,
+        defaultDosage: data.default_dosage || undefined,
+        contraIndications: data.contra_indications || undefined,
+        notes: data.notes || undefined,
       });
-      if (error) throw error;
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to create medicine');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-medicines'] });
+      queryClient.invalidateQueries({ queryKey: ['medicines'] });
       toast.success('Medicine added successfully');
       setIsAddDialogOpen(false);
       resetForm();
     },
-    onError: () => {
-      toast.error('Failed to add medicine');
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to add medicine');
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
-      const { error } = await supabase
-        .from('medicines')
-        .update({
-          name: data.name,
-          category: data.category,
-          indications: data.indications || null,
-          default_dosage: data.default_dosage || null,
-          contra_indications: data.contra_indications || null,
-          notes: data.notes || null,
-        })
-        .eq('id', id);
-      if (error) throw error;
+      const response = await adminApi.updateGlobalMedicine(id, {
+        name: data.name,
+        category: data.category,
+        indications: data.indications || undefined,
+        defaultDosage: data.default_dosage || undefined,
+        contraIndications: data.contra_indications || undefined,
+        notes: data.notes || undefined,
+      });
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to update medicine');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-medicines'] });
+      queryClient.invalidateQueries({ queryKey: ['medicines'] });
       toast.success('Medicine updated successfully');
       setEditingMedicine(null);
       resetForm();
     },
-    onError: () => {
-      toast.error('Failed to update medicine');
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to update medicine');
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('medicines').delete().eq('id', id);
-      if (error) throw error;
+      const response = await adminApi.deleteGlobalMedicine(id);
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to delete medicine');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-medicines'] });
+      queryClient.invalidateQueries({ queryKey: ['medicines'] });
       toast.success('Medicine deleted successfully');
     },
-    onError: () => {
-      toast.error('Failed to delete medicine');
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to delete medicine');
     },
   });
 
@@ -151,8 +162,8 @@ const MedicinesManagement = () => {
       name: medicine.name,
       category: medicine.category,
       indications: medicine.indications || '',
-      default_dosage: medicine.default_dosage || '',
-      contra_indications: medicine.contra_indications || '',
+      default_dosage: medicine.defaultDosage || '',
+      contra_indications: medicine.contraIndications || '',
       notes: medicine.notes || '',
     });
   };
@@ -164,7 +175,7 @@ const MedicinesManagement = () => {
     }
 
     if (editingMedicine) {
-      updateMutation.mutate({ id: editingMedicine.id, data: formData });
+      updateMutation.mutate({ id: editingMedicine._id, data: formData });
     } else {
       addMutation.mutate(formData);
     }
@@ -323,13 +334,13 @@ const MedicinesManagement = () => {
                   </TableRow>
                 ) : (
                   filteredMedicines?.map((medicine) => (
-                    <TableRow key={medicine.id}>
+                    <TableRow key={medicine._id}>
                       <TableCell className="font-medium">{medicine.name}</TableCell>
                       <TableCell>
                         <Badge variant="secondary">{medicine.category}</Badge>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
-                        {medicine.default_dosage || '-'}
+                        {medicine.defaultDosage || '-'}
                       </TableCell>
                       <TableCell className="max-w-xs truncate text-muted-foreground">
                         {medicine.indications || '-'}
@@ -346,7 +357,7 @@ const MedicinesManagement = () => {
                           variant="ghost"
                           size="icon"
                           className="text-destructive hover:text-destructive"
-                          onClick={() => deleteMutation.mutate(medicine.id)}
+                          onClick={() => deleteMutation.mutate(medicine._id)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

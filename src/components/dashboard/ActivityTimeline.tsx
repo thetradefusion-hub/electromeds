@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { patientApi } from '@/lib/api/patient.api';
+import { prescriptionApi } from '@/lib/api/prescription.api';
+import { appointmentApi } from '@/lib/api/appointment.api';
 import { useDoctor } from '@/hooks/useDoctor';
 import { format } from 'date-fns';
 import { 
@@ -26,65 +28,72 @@ export function ActivityTimeline() {
     queryFn: async () => {
       if (!doctorId) return [];
 
-      const [patientsRes, prescriptionsRes, appointmentsRes] = await Promise.all([
-        supabase
-          .from('patients')
-          .select('id, name, created_at')
-          .eq('doctor_id', doctorId)
-          .order('created_at', { ascending: false })
-          .limit(5),
-        supabase
-          .from('prescriptions')
-          .select('id, prescription_no, created_at, patients(name)')
-          .eq('doctor_id', doctorId)
-          .order('created_at', { ascending: false })
-          .limit(5),
-        supabase
-          .from('appointments')
-          .select('id, patient_name, appointment_date, time_slot, created_at')
-          .eq('doctor_id', doctorId)
-          .order('created_at', { ascending: false })
-          .limit(5),
-      ]);
+      try {
+        const [patientsRes, prescriptionsRes, appointmentsRes] = await Promise.all([
+          patientApi.getPatients(),
+          prescriptionApi.getPrescriptions(),
+          appointmentApi.getAppointments(),
+        ]);
 
-      const items: TimelineItem[] = [];
+        const items: TimelineItem[] = [];
 
-      // Add patients
-      (patientsRes.data || []).forEach((p) => {
-        items.push({
-          id: `patient-${p.id}`,
-          type: 'patient',
-          title: `New patient: ${p.name}`,
-          subtitle: 'Patient registered',
-          timestamp: new Date(p.created_at),
-        });
-      });
+        // Add patients
+        if (patientsRes.success && patientsRes.data) {
+          patientsRes.data
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .slice(0, 5)
+            .forEach((p) => {
+              items.push({
+                id: `patient-${p._id}`,
+                type: 'patient',
+                title: `New patient: ${p.name}`,
+                subtitle: 'Patient registered',
+                timestamp: new Date(p.createdAt),
+              });
+            });
+        }
 
-      // Add prescriptions
-      (prescriptionsRes.data || []).forEach((rx) => {
-        const patientName = (rx.patients as any)?.name || 'Unknown';
-        items.push({
-          id: `rx-${rx.id}`,
-          type: 'prescription',
-          title: `Prescription ${rx.prescription_no}`,
-          subtitle: `For ${patientName}`,
-          timestamp: new Date(rx.created_at),
-        });
-      });
+        // Add prescriptions
+        if (prescriptionsRes.success && prescriptionsRes.data) {
+          prescriptionsRes.data
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .slice(0, 5)
+            .forEach((rx) => {
+              const patientName = typeof rx.patientId === 'object' && rx.patientId?.name 
+                ? rx.patientId.name 
+                : 'Unknown';
+              items.push({
+                id: `rx-${rx._id}`,
+                type: 'prescription',
+                title: `Prescription ${rx.prescriptionNo}`,
+                subtitle: `For ${patientName}`,
+                timestamp: new Date(rx.createdAt),
+              });
+            });
+        }
 
-      // Add appointments
-      (appointmentsRes.data || []).forEach((apt) => {
-        items.push({
-          id: `apt-${apt.id}`,
-          type: 'appointment',
-          title: `Appointment booked`,
-          subtitle: apt.patient_name || 'Walk-in',
-          timestamp: new Date(apt.created_at),
-        });
-      });
+        // Add appointments
+        if (appointmentsRes.success && appointmentsRes.data) {
+          appointmentsRes.data
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .slice(0, 5)
+            .forEach((apt) => {
+              items.push({
+                id: `apt-${apt._id}`,
+                type: 'appointment',
+                title: `Appointment booked`,
+                subtitle: apt.patientName || 'Walk-in',
+                timestamp: new Date(apt.createdAt),
+              });
+            });
+        }
 
-      // Sort by timestamp
-      return items.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()).slice(0, 8);
+        // Sort by timestamp
+        return items.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime()).slice(0, 8);
+      } catch (error) {
+        console.error('Error fetching activity timeline:', error);
+        return [];
+      }
     },
     enabled: !!doctorId,
   });

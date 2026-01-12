@@ -34,7 +34,8 @@ import { cn } from '@/lib/utils';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { format, addDays } from 'date-fns';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { prescriptionApi } from '@/lib/api/prescription.api';
+import { medicineRuleApi } from '@/lib/api/medicineRule.api';
 import { Badge } from '@/components/ui/badge';
 
 interface SelectedSymptom {
@@ -129,21 +130,31 @@ export default function Consultation() {
       }
       
       setLoadingHistory(true);
-      const { data, error } = await supabase
-        .from('prescriptions')
-        .select('id, prescription_no, created_at, symptoms, medicines')
-        .eq('patient_id', selectedPatientId)
-        .order('created_at', { ascending: false })
-        .limit(5);
-      
-      if (error) {
+      try {
+        const response = await prescriptionApi.getPrescriptions();
+        if (response.success && response.data) {
+          // Filter prescriptions for this patient and map to expected format
+          const patientPrescriptions = response.data
+            .filter((rx) => {
+              const patientId = typeof rx.patientId === 'string' 
+                ? rx.patientId 
+                : rx.patientId?._id;
+              return patientId === selectedPatientId;
+            })
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .slice(0, 5)
+            .map((rx) => ({
+              id: rx._id,
+              prescription_no: rx.prescriptionNo,
+              created_at: rx.createdAt,
+              symptoms: (rx.symptoms || []).map((s: any) => ({ name: s.name || s.symptomName || '' })),
+              medicines: (rx.medicines || []).map((m: any) => ({ name: m.name || m.medicineName || '' })),
+            }));
+          
+          setPatientHistory(patientPrescriptions);
+        }
+      } catch (error) {
         console.error('Error fetching patient history:', error);
-      } else {
-        setPatientHistory(data?.map(rx => ({
-          ...rx,
-          symptoms: Array.isArray(rx.symptoms) ? rx.symptoms as { name: string }[] : [],
-          medicines: Array.isArray(rx.medicines) ? rx.medicines as { name: string }[] : [],
-        })) || []);
       }
       setLoadingHistory(false);
     };
@@ -222,40 +233,45 @@ export default function Consultation() {
 
     const symptomIds = selectedSymptoms.map((s) => s.symptomId);
 
-    const { data: rules, error } = await supabase
-      .from('medicine_rules')
-      .select('*')
-      .order('priority', { ascending: false });
+    try {
+      const response = await medicineRuleApi.suggestMedicines(symptomIds);
+      
+      if (!response.success || !response.data) {
+        toast.error('Failed to fetch suggestions');
+        return;
+      }
 
-    if (error) {
-      toast.error('Failed to fetch suggestions');
-      return;
-    }
+      const { rules: matchingRules, suggestedMedicineIds } = response.data;
+      const medicineMap = new Map<string, SuggestedMedicine>();
 
-    const medicineMap = new Map<string, SuggestedMedicine>();
+      // Get medicine details for suggested IDs
+      const suggestedMedicinesList = medicines.filter((m) => 
+        suggestedMedicineIds.includes(m.id)
+      );
 
-    const matchingRules = rules.filter((rule) =>
-      rule.symptom_ids.some((sId: string) => symptomIds.includes(sId))
-    );
-
-    matchingRules.forEach((rule) => {
-      rule.medicine_ids.forEach((medId: string) => {
-        const medicine = medicines.find((m) => m.id === medId);
-        if (medicine && !medicineMap.has(medId)) {
-          medicineMap.set(medId, {
-            medicineId: medId,
-            medicine,
-            dosage: rule.dosage || medicine.default_dosage || '10 drops twice daily',
-            duration: rule.duration || '7 days',
-            instructions: '',
-          });
-        }
+      // Use rules to get dosage and duration
+      matchingRules.forEach((rule) => {
+        rule.medicineIds.forEach((medId: string) => {
+          const medicine = suggestedMedicinesList.find((m) => m.id === medId);
+          if (medicine && !medicineMap.has(medId)) {
+            medicineMap.set(medId, {
+              medicineId: medId,
+              medicine,
+              dosage: rule.dosage || medicine.defaultDosage || '10 drops twice daily',
+              duration: rule.duration || '7 days',
+              instructions: '',
+            });
+          }
+        });
       });
-    });
 
-    setSuggestedMedicines(Array.from(medicineMap.values()));
-    setShowSuggestions(true);
-    toast.success(`Found ${medicineMap.size} medicine suggestions`);
+      setSuggestedMedicines(Array.from(medicineMap.values()));
+      setShowSuggestions(true);
+      toast.success(`Found ${medicineMap.size} medicine suggestions`);
+    } catch (error) {
+      console.error('Error fetching suggestions:', error);
+      toast.error('Failed to fetch suggestions');
+    }
   };
 
   const removeMedicine = (medicineId: string) => {

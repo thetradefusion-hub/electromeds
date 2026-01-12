@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { medicineRuleApi } from '@/lib/api/medicineRule.api';
+import { medicineApi } from '@/lib/api/medicine.api';
 
 interface MedicineRule {
   id: string;
@@ -32,25 +33,37 @@ export const useMedicineSuggestions = (selectedSymptomIds: string[]) => {
   const { data: rules } = useQuery({
     queryKey: ['medicine-rules'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('medicine_rules')
-        .select('*')
-        .order('priority', { ascending: false });
-
-      if (error) throw error;
-      return data as MedicineRule[];
+      const response = await medicineRuleApi.getMedicineRules();
+      if (response.success && response.data) {
+        return response.data.map((r) => ({
+          id: r._id,
+          name: r.name,
+          description: r.description || null,
+          symptom_ids: r.symptomIds,
+          medicine_ids: r.medicineIds,
+          dosage: r.dosage,
+          duration: r.duration,
+          priority: r.priority,
+        }));
+      }
+      return [];
     },
   });
 
   const { data: medicines } = useQuery({
     queryKey: ['all-medicines-for-suggestions'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('medicines')
-        .select('id, name, category, indications, default_dosage');
-
-      if (error) throw error;
-      return data as Medicine[];
+      const response = await medicineApi.getMedicines();
+      if (response.success && response.data) {
+        return response.data.map((m) => ({
+          id: m._id,
+          name: m.name,
+          category: m.category,
+          indications: m.indications || null,
+          default_dosage: m.defaultDosage || null,
+        }));
+      }
+      return [];
     },
   });
 

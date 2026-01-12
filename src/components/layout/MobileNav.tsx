@@ -3,11 +3,14 @@ import {
   LayoutDashboard, 
   Users, 
   Stethoscope, 
-  CalendarCheck, 
-  Menu 
+  Pill, 
+  Menu,
+  Shield,
+  Activity
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '@/hooks/useAuth';
 
 interface MobileNavProps {
   onMenuClick: () => void;
@@ -16,13 +19,24 @@ interface MobileNavProps {
 export function MobileNav({ onMenuClick }: MobileNavProps) {
   const location = useLocation();
   const { t } = useTranslation();
+  const { role } = useAuth();
 
-  const navItems = [
-    { icon: LayoutDashboard, label: t('nav.dashboard'), path: '/' },
+  // Doctor/Staff navigation items
+  const doctorNavItems = [
+    { icon: LayoutDashboard, label: t('nav.dashboard'), path: '/dashboard' },
     { icon: Users, label: t('nav.patients'), path: '/patients' },
     { icon: Stethoscope, label: t('nav.consultation'), path: '/consultation' },
-    { icon: CalendarCheck, label: t('nav.appointments'), path: '/appointments' },
+    { icon: Pill, label: t('nav.medicines'), path: '/medicines' },
   ];
+
+  // Admin navigation items - only admin-specific items
+  const adminNavItems = [
+    { icon: Shield, label: t('nav.superAdmin') || 'Admin', path: '/admin' },
+    { icon: Activity, label: t('nav.saasAdmin') || 'SaaS Admin', path: '/saas-admin' },
+  ];
+
+  // Show different navigation based on role
+  const navItems = role === 'super_admin' ? adminNavItems : doctorNavItems;
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-lg border-t border-border safe-area-bottom md:hidden">

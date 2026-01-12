@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface PrescriptionShareData {
@@ -25,26 +24,13 @@ export function useWhatsAppShare() {
     try {
       console.log('Sending prescription via WhatsApp:', data.prescriptionNo);
       
-      const { data: response, error } = await supabase.functions.invoke(
-        'send-whatsapp-prescription',
-        {
-          body: data,
-        }
-      );
-
-      if (error) {
-        console.error('WhatsApp share error:', error);
-        toast.error('Failed to send via WhatsApp: ' + error.message);
-        return false;
-      }
-
-      if (response?.success) {
-        toast.success('Prescription sent via WhatsApp!');
-        return true;
-      } else {
-        toast.error(response?.details || 'Failed to send via WhatsApp');
-        return false;
-      }
+      // TODO: Implement backend WhatsApp API endpoint
+      // For now, use direct WhatsApp sharing
+      console.log('WhatsApp API endpoint not implemented yet, using direct share');
+      
+      // Use direct WhatsApp sharing as fallback
+      shareViaWhatsAppDirect(data);
+      return true;
     } catch (error) {
       console.error('WhatsApp share exception:', error);
       toast.error('Error sending via WhatsApp');

@@ -1,5 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { adminApi } from '@/lib/api/admin.api';
+import { patientApi } from '@/lib/api/patient.api';
+import { prescriptionApi } from '@/lib/api/prescription.api';
+import { medicineApi } from '@/lib/api/medicine.api';
+import { symptomApi } from '@/lib/api/symptom.api';
+import { doctorApi } from '@/lib/api/doctor.api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, UserPlus, Pill, Stethoscope, TrendingUp, Calendar, FileText, Activity } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
@@ -11,23 +16,30 @@ const ClinicAnalytics = () => {
   const { data: stats, isLoading } = useQuery({
     queryKey: ['admin-analytics-enhanced'],
     queryFn: async () => {
-      const [doctorsResult, patientsResult, prescriptionsResult, symptomsResult, medicinesResult] = await Promise.all([
-        supabase.from('doctors').select('id, created_at'),
-        supabase.from('patients').select('id, created_at, case_type, gender'),
-        supabase.from('prescriptions').select('id, created_at, doctor_id'),
-        supabase.from('symptoms').select('id', { count: 'exact' }).eq('is_global', true),
-        supabase.from('medicines').select('id', { count: 'exact' }).eq('is_global', true),
+      const [platformStats, doctorsResult, patientsResult, prescriptionsResult, symptomsResult, medicinesResult] = await Promise.all([
+        adminApi.getPlatformStats(),
+        adminApi.getAllDoctors(),
+        patientApi.getPatients(),
+        prescriptionApi.getPrescriptions(),
+        symptomApi.getSymptoms(),
+        medicineApi.getMedicines(),
       ]);
 
       const today = startOfDay(new Date());
       const last30Days = subDays(today, 30);
       const last7Days = subDays(today, 7);
 
+      const patients = patientsResult.data?.data || [];
+      const prescriptions = prescriptionsResult.data?.data || [];
+      const doctors = doctorsResult.data?.data || [];
+      const symptoms = symptomsResult.data?.data || [];
+      const medicines = medicinesResult.data?.data || [];
+
       // Calculate daily patient registrations for last 30 days
       const dailyPatients = eachDayOfInterval({ start: last30Days, end: today }).map(date => {
         const dayStr = format(date, 'yyyy-MM-dd');
-        const count = patientsResult.data?.filter(p => 
-          format(new Date(p.created_at), 'yyyy-MM-dd') === dayStr
+        const count = patients.filter((p: any) => 
+          format(new Date(p.createdAt), 'yyyy-MM-dd') === dayStr
         ).length || 0;
         return { date: format(date, 'MMM dd'), patients: count };
       });
@@ -35,47 +47,45 @@ const ClinicAnalytics = () => {
       // Calculate daily prescriptions for last 30 days
       const dailyPrescriptions = eachDayOfInterval({ start: last30Days, end: today }).map(date => {
         const dayStr = format(date, 'yyyy-MM-dd');
-        const count = prescriptionsResult.data?.filter(p => 
-          format(new Date(p.created_at), 'yyyy-MM-dd') === dayStr
+        const count = prescriptions.filter((p: any) => 
+          format(new Date(p.createdAt), 'yyyy-MM-dd') === dayStr
         ).length || 0;
         return { date: format(date, 'MMM dd'), prescriptions: count };
       });
 
       // Weekly comparison
-      const thisWeekPatients = patientsResult.data?.filter(p => new Date(p.created_at) >= last7Days).length || 0;
+      const thisWeekPatients = patients.filter((p: any) => new Date(p.createdAt) >= last7Days).length || 0;
       const lastWeekStart = subDays(last7Days, 7);
-      const lastWeekPatients = patientsResult.data?.filter(p => {
-        const date = new Date(p.created_at);
+      const lastWeekPatients = patients.filter((p: any) => {
+        const date = new Date(p.createdAt);
         return date >= lastWeekStart && date < last7Days;
       }).length || 0;
 
       // Case type distribution
-      const newCases = patientsResult.data?.filter(p => p.case_type === 'new').length || 0;
-      const followUpCases = patientsResult.data?.filter(p => p.case_type === 'old').length || 0;
+      const newCases = patients.filter((p: any) => p.caseType === 'new').length || 0;
+      const followUpCases = patients.filter((p: any) => p.caseType === 'old').length || 0;
 
       // Gender distribution
-      const malePatients = patientsResult.data?.filter(p => p.gender?.toLowerCase() === 'male').length || 0;
-      const femalePatients = patientsResult.data?.filter(p => p.gender?.toLowerCase() === 'female').length || 0;
-      const otherPatients = (patientsResult.data?.length || 0) - malePatients - femalePatients;
-
-      // Doctor with most patients
-      const doctorPatientCounts: Record<string, number> = {};
-      prescriptionsResult.data?.forEach(rx => {
-        doctorPatientCounts[rx.doctor_id] = (doctorPatientCounts[rx.doctor_id] || 0) + 1;
-      });
+      const malePatients = patients.filter((p: any) => p.gender?.toLowerCase() === 'male').length || 0;
+      const femalePatients = patients.filter((p: any) => p.gender?.toLowerCase() === 'female').length || 0;
+      const otherPatients = patients.length - malePatients - femalePatients;
 
       // Today's stats
-      const todayPatients = patientsResult.data?.filter(p => new Date(p.created_at) >= today).length || 0;
-      const todayPrescriptions = prescriptionsResult.data?.filter(p => new Date(p.created_at) >= today).length || 0;
+      const todayPatientsCount = patients.filter((p: any) => new Date(p.createdAt) >= today).length || 0;
+      const todayPrescriptionsCount = prescriptions.filter((p: any) => new Date(p.createdAt) >= today).length || 0;
+
+      // Global symptoms and medicines count
+      const globalSymptomsCount = symptoms.filter((s: any) => s.isGlobal).length || 0;
+      const globalMedicinesCount = medicines.filter((m: any) => m.isGlobal).length || 0;
 
       return {
-        totalDoctors: doctorsResult.data?.length || 0,
-        totalPatients: patientsResult.data?.length || 0,
-        totalPrescriptions: prescriptionsResult.data?.length || 0,
-        todayPatients,
-        todayPrescriptions,
-        globalSymptoms: symptomsResult.count || 0,
-        globalMedicines: medicinesResult.count || 0,
+        totalDoctors: platformStats.data?.totalDoctors || doctors.length || 0,
+        totalPatients: platformStats.data?.totalPatients || patients.length || 0,
+        totalPrescriptions: platformStats.data?.totalPrescriptions || prescriptions.length || 0,
+        todayPatients: todayPatientsCount,
+        todayPrescriptions: todayPrescriptionsCount,
+        globalSymptoms: globalSymptomsCount,
+        globalMedicines: globalMedicinesCount,
         dailyPatients,
         dailyPrescriptions,
         thisWeekPatients,
@@ -157,34 +167,54 @@ const ClinicAnalytics = () => {
 
   return (
     <div className="space-y-6">
-      {/* Stats Cards */}
+      {/* Enhanced Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        {analyticsCards.map((card) => (
-          <Card key={card.title}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
-              <div className={`rounded-lg p-2 ${card.bgColor}`}>
-                <card.icon className={`h-4 w-4 ${card.color}`} />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{card.value.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground">{card.description}</p>
-            </CardContent>
-          </Card>
-        ))}
+        {analyticsCards.map((card, index) => {
+          const gradients = [
+            'from-blue-500/10 to-cyan-500/10 border-blue-500/20',
+            'from-purple-500/10 to-pink-500/10 border-purple-500/20',
+            'from-green-500/10 to-emerald-500/10 border-green-500/20',
+            'from-orange-500/10 to-amber-500/10 border-orange-500/20',
+            'from-red-500/10 to-rose-500/10 border-red-500/20',
+            'from-teal-500/10 to-cyan-500/10 border-teal-500/20',
+          ];
+          const gradient = gradients[index % gradients.length];
+          
+          return (
+            <Card 
+              key={card.title}
+              className={`relative overflow-hidden border-2 bg-gradient-to-br ${gradient} shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group`}
+            >
+              <div className="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-white/10 to-transparent rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 relative z-10">
+                <CardTitle className="text-sm font-semibold">{card.title}</CardTitle>
+                <div className={`rounded-xl p-2.5 ${card.bgColor} shadow-md group-hover:scale-110 transition-transform duration-300`}>
+                  <card.icon className={`h-5 w-5 ${card.color}`} />
+                </div>
+              </CardHeader>
+              <CardContent className="relative z-10">
+                <div className="text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                  {card.value.toLocaleString()}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">{card.description}</p>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {/* Charts Row */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Patient Registration Trend */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
+        <Card className="border-2 border-blue-500/20 bg-gradient-to-br from-blue-500/5 to-cyan-500/5 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-blue-500/10 to-transparent border-b border-blue-500/20">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <div className="p-2 rounded-lg bg-blue-500/20">
+                <TrendingUp className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
               Patient Registration Trend
             </CardTitle>
-            <CardDescription>Daily new patient registrations (last 30 days)</CardDescription>
+            <CardDescription className="mt-1">Daily new patient registrations (last 30 days)</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
@@ -225,13 +255,15 @@ const ClinicAnalytics = () => {
         </Card>
 
         {/* Prescription Trend */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-accent" />
+        <Card className="border-2 border-green-500/20 bg-gradient-to-br from-green-500/5 to-emerald-500/5 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-green-500/10 to-transparent border-b border-green-500/20">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <div className="p-2 rounded-lg bg-green-500/20">
+                <FileText className="h-5 w-5 text-green-600 dark:text-green-400" />
+              </div>
               Prescription Trend
             </CardTitle>
-            <CardDescription>Daily prescriptions issued (last 30 days)</CardDescription>
+            <CardDescription className="mt-1">Daily prescriptions issued (last 30 days)</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[300px]">
@@ -267,13 +299,15 @@ const ClinicAnalytics = () => {
       {/* Bottom Row */}
       <div className="grid gap-6 md:grid-cols-3">
         {/* Weekly Comparison */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5 text-primary" />
+        <Card className="border-2 border-purple-500/20 bg-gradient-to-br from-purple-500/5 to-pink-500/5 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-purple-500/10 to-transparent border-b border-purple-500/20">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <div className="p-2 rounded-lg bg-purple-500/20">
+                <Activity className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              </div>
               Weekly Growth
             </CardTitle>
-            <CardDescription>Patient comparison with last week</CardDescription>
+            <CardDescription className="mt-1">Patient comparison with last week</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -296,10 +330,10 @@ const ClinicAnalytics = () => {
         </Card>
 
         {/* Case Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Case Distribution</CardTitle>
-            <CardDescription>New vs Follow-up cases</CardDescription>
+        <Card className="border-2 border-orange-500/20 bg-gradient-to-br from-orange-500/5 to-amber-500/5 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-orange-500/10 to-transparent border-b border-orange-500/20">
+            <CardTitle className="text-lg">Case Distribution</CardTitle>
+            <CardDescription className="mt-1">New vs Follow-up cases</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[150px]">
@@ -337,10 +371,10 @@ const ClinicAnalytics = () => {
         </Card>
 
         {/* Gender Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Gender Distribution</CardTitle>
-            <CardDescription>Patient demographics</CardDescription>
+        <Card className="border-2 border-teal-500/20 bg-gradient-to-br from-teal-500/5 to-cyan-500/5 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-teal-500/10 to-transparent border-b border-teal-500/20">
+            <CardTitle className="text-lg">Gender Distribution</CardTitle>
+            <CardDescription className="mt-1">Patient demographics</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[150px]">

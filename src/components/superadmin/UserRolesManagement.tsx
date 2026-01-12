@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { adminApi, AdminUser } from '@/lib/api/admin.api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,63 +16,53 @@ import { format } from 'date-fns';
 type AppRole = 'super_admin' | 'doctor' | 'staff';
 
 interface UserWithRole {
-  user_id: string;
+  _id: string;
   role: AppRole;
-  created_at: string;
-  profile?: {
-    name: string;
-    email: string;
-    phone: string | null;
-  };
+  createdAt: string;
+  name: string;
+  email: string;
+  phone?: string;
+  isActive: boolean;
+  assignedDoctorId?: string | { _id: string; registrationNo?: string; specialization?: string; clinicName?: string };
 }
 
 const UserRolesManagement = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<UserWithRole | null>(null);
   const [newRole, setNewRole] = useState<AppRole>('doctor');
+  const [selectedStaffForAssignment, setSelectedStaffForAssignment] = useState<UserWithRole | null>(null);
+  const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
+  const [doctors, setDoctors] = useState<any[]>([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: users, isLoading } = useQuery({
     queryKey: ['admin-user-roles'],
     queryFn: async () => {
-      const { data: rolesData, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (rolesError) throw rolesError;
-
-      // Fetch profiles for each user
-      const usersWithProfiles = await Promise.all(
-        (rolesData || []).map(async (roleEntry) => {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('name, email, phone')
-            .eq('user_id', roleEntry.user_id)
-            .maybeSingle();
-
-          return {
-            ...roleEntry,
-            profile,
-          };
-        })
-      );
-
-      return usersWithProfiles as UserWithRole[];
+      const response = await adminApi.getAllUsers();
+      if (response.success && response.data) {
+        return response.data.map((user: any) => ({
+          _id: user._id,
+          role: user.role,
+          createdAt: user.createdAt,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          isActive: user.isActive,
+          assignedDoctorId: user.assignedDoctorId,
+          createdBy: user.createdBy,
+        }));
+      }
+      return [];
     },
   });
 
   const updateRoleMutation = useMutation({
     mutationFn: async ({ userId, role }: { userId: string; role: AppRole }) => {
-      const { error } = await supabase
-        .from('user_roles')
-        .update({ role })
-        .eq('user_id', userId);
-
-      if (error) throw error;
-
-      // If changing from doctor to another role, we may need to handle doctor record
-      // For now, we just update the role
+      const response = await adminApi.updateUserRole(userId, role);
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to update role');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-user-roles'] });
@@ -80,16 +70,69 @@ const UserRolesManagement = () => {
       toast.success('User role updated successfully');
       setSelectedUser(null);
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Role update error:', error);
-      toast.error('Failed to update user role');
+      toast.error(error.response?.data?.message || 'Failed to update user role');
+    },
+  });
+
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ userId, isActive }: { userId: string; isActive: boolean }) => {
+      const response = await adminApi.updateUserStatus(userId, isActive);
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to update status');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-user-roles'] });
+      toast.success('User status updated successfully');
+    },
+    onError: (error: any) => {
+      console.error('Status update error:', error);
+      toast.error(error.response?.data?.message || 'Failed to update user status');
+    },
+  });
+
+  const assignDoctorMutation = useMutation({
+    mutationFn: async ({ userId, doctorId }: { userId: string; doctorId: string }) => {
+      const response = await adminApi.assignDoctorToStaff(userId, doctorId);
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to assign doctor');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-user-roles'] });
+      toast.success('Doctor assigned to staff successfully');
+      setSelectedStaffForAssignment(null);
+      setSelectedDoctorId('');
+    },
+    onError: (error: any) => {
+      console.error('Doctor assignment error:', error);
+      toast.error(error.response?.data?.message || 'Failed to assign doctor');
+    },
+  });
+
+  const unassignDoctorMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const response = await adminApi.unassignDoctorFromStaff(userId);
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to unassign doctor');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-user-roles'] });
+      toast.success('Doctor unassigned from staff successfully');
+    },
+    onError: (error: any) => {
+      console.error('Doctor unassignment error:', error);
+      toast.error(error.response?.data?.message || 'Failed to unassign doctor');
     },
   });
 
   const filteredUsers = users?.filter(
     (user) =>
-      user.profile?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.profile?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.role.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -127,8 +170,15 @@ const UserRolesManagement = () => {
   const handleRoleChange = () => {
     if (!selectedUser) return;
     updateRoleMutation.mutate({
-      userId: selectedUser.user_id,
+      userId: selectedUser._id,
       role: newRole,
+    });
+  };
+
+  const handleStatusToggle = (user: UserWithRole) => {
+    updateStatusMutation.mutate({
+      userId: user._id,
+      isActive: !user.isActive,
     });
   };
 
@@ -200,8 +250,22 @@ const UserRolesManagement = () => {
       {/* Users Table */}
       <Card>
         <CardHeader>
-          <CardTitle>User Roles Management</CardTitle>
-          <CardDescription>View and modify user roles across the system</CardDescription>
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <CardTitle>User Roles Management</CardTitle>
+              <CardDescription>View and modify user roles across the system</CardDescription>
+            </div>
+            <Button
+              onClick={() => {
+                setSelectedStaffForAssignment({ _id: '', role: 'staff', createdAt: '', name: '', email: '', isActive: true } as UserWithRole);
+                setSelectedDoctorId('');
+              }}
+              className="gap-2"
+            >
+              <User className="h-4 w-4" />
+              Create Staff
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="mb-4">
@@ -228,6 +292,8 @@ const UserRolesManagement = () => {
                     <TableHead>User</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Current Role</TableHead>
+                    <TableHead>Assigned Doctor</TableHead>
+                    <TableHead>Created By</TableHead>
                     <TableHead>Assigned On</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -235,32 +301,108 @@ const UserRolesManagement = () => {
                 <TableBody>
                   {filteredUsers?.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                         No users found
                       </TableCell>
                     </TableRow>
                   ) : (
                     filteredUsers?.map((user) => (
-                      <TableRow key={user.user_id}>
+                      <TableRow key={user._id}>
                         <TableCell>
-                          <div className="font-medium">{user.profile?.name || 'Unknown'}</div>
-                          {user.profile?.phone && (
-                            <div className="text-xs text-muted-foreground">{user.profile.phone}</div>
+                          <div className="font-medium">{user.name || 'Unknown'}</div>
+                          {user.phone && (
+                            <div className="text-xs text-muted-foreground">{user.phone}</div>
+                          )}
+                          {!user.isActive && (
+                            <Badge variant="destructive" className="mt-1">Inactive</Badge>
                           )}
                         </TableCell>
-                        <TableCell>{user.profile?.email || 'N/A'}</TableCell>
+                        <TableCell>{user.email || 'N/A'}</TableCell>
                         <TableCell>{getRoleBadge(user.role)}</TableCell>
-                        <TableCell>{format(new Date(user.created_at), 'MMM dd, yyyy')}</TableCell>
+                        <TableCell>
+                          {user.role === 'staff' ? (
+                            user.assignedDoctorId ? (
+                              typeof user.assignedDoctorId === 'object' && user.assignedDoctorId ? (
+                                <div className="text-sm">
+                                  <div className="font-medium">
+                                    {user.assignedDoctorId.clinicName || 'Dr. ' + (user.assignedDoctorId.registrationNo || '')}
+                                  </div>
+                                  {user.assignedDoctorId.specialization && (
+                                    <div className="text-xs text-muted-foreground">{user.assignedDoctorId.specialization}</div>
+                                  )}
+                                </div>
+                              ) : (
+                                <Badge variant="secondary">Assigned</Badge>
+                              )
+                            ) : (
+                              <Badge variant="outline" className="text-muted-foreground">Not Assigned</Badge>
+                            )
+                          ) : (
+                            <span className="text-muted-foreground text-sm">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {user.createdBy ? (
+                            typeof user.createdBy === 'object' && user.createdBy ? (
+                              <div className="text-sm">
+                                <div className="font-medium">{user.createdBy.name || 'Unknown'}</div>
+                                <div className="text-xs text-muted-foreground">{user.createdBy.email || ''}</div>
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground text-sm">-</span>
+                            )
+                          ) : (
+                            <span className="text-muted-foreground text-sm">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>{format(new Date(user.createdAt), 'MMM dd, yyyy')}</TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openRoleChange(user)}
-                            className="gap-1"
-                          >
-                            <Shield className="h-3 w-3" />
-                            Change Role
-                          </Button>
+                          <div className="flex items-center justify-end gap-2">
+                            {user.role === 'staff' && (
+                              <>
+                                {user.assignedDoctorId ? (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => unassignDoctorMutation.mutate(user._id)}
+                                    className="gap-1"
+                                    disabled={unassignDoctorMutation.isPending}
+                                  >
+                                    Unassign Doctor
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedStaffForAssignment(user);
+                                      setSelectedDoctorId('');
+                                    }}
+                                    className="gap-1"
+                                  >
+                                    Assign Doctor
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleStatusToggle(user)}
+                              className="gap-1"
+                            >
+                              {user.isActive ? 'Deactivate' : 'Activate'}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openRoleChange(user)}
+                              className="gap-1"
+                            >
+                              <Shield className="h-3 w-3" />
+                              Change Role
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
@@ -272,20 +414,184 @@ const UserRolesManagement = () => {
         </CardContent>
       </Card>
 
+      {/* Assign Doctor / Create Staff Dialog */}
+      <Dialog open={!!selectedStaffForAssignment} onOpenChange={() => setSelectedStaffForAssignment(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedStaffForAssignment?._id ? 'Assign Doctor to Staff' : 'Create New Staff'}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedStaffForAssignment?._id
+                ? `Assign a doctor to ${selectedStaffForAssignment?.name || 'this staff member'}`
+                : 'Create a new staff member and assign them to a doctor'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            {selectedStaffForAssignment?._id ? (
+              // Existing staff - assign doctor
+              <>
+                <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                  <div>
+                    <p className="font-medium">{selectedStaffForAssignment?.name}</p>
+                    <p className="text-sm text-muted-foreground">{selectedStaffForAssignment?.email}</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="assign-doctor">Select Doctor</Label>
+                  <Select value={selectedDoctorId} onValueChange={setSelectedDoctorId}>
+                    <SelectTrigger id="assign-doctor">
+                      <SelectValue placeholder="Select a doctor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {doctors.map((doctor) => (
+                        <SelectItem key={doctor.id} value={doctor.id}>
+                          {doctor.name} - {doctor.specialization} ({doctor.registrationNo})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {doctors.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No doctors available</p>
+                  )}
+                </div>
+              </>
+            ) : (
+              // New staff - create and assign
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="new-staff-name">Full Name *</Label>
+                  <Input
+                    id="new-staff-name"
+                    value={selectedStaffForAssignment?.name || ''}
+                    onChange={(e) => setSelectedStaffForAssignment({
+                      ...selectedStaffForAssignment!,
+                      name: e.target.value,
+                    } as UserWithRole)}
+                    placeholder="John Doe"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="new-staff-email">Email *</Label>
+                  <Input
+                    id="new-staff-email"
+                    type="email"
+                    value={selectedStaffForAssignment?.email || ''}
+                    onChange={(e) => setSelectedStaffForAssignment({
+                      ...selectedStaffForAssignment!,
+                      email: e.target.value,
+                    } as UserWithRole)}
+                    placeholder="staff@clinic.com"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="new-staff-password">Password *</Label>
+                  <Input
+                    id="new-staff-password"
+                    type="password"
+                    placeholder="Minimum 6 characters"
+                    minLength={6}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="new-staff-phone">Phone (Optional)</Label>
+                  <Input
+                    id="new-staff-phone"
+                    type="tel"
+                    value={selectedStaffForAssignment?.phone || ''}
+                    onChange={(e) => setSelectedStaffForAssignment({
+                      ...selectedStaffForAssignment!,
+                      phone: e.target.value,
+                    } as UserWithRole)}
+                    placeholder="+91 98765 43210"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="new-staff-doctor">Assign to Doctor *</Label>
+                  <Select value={selectedDoctorId} onValueChange={setSelectedDoctorId}>
+                    <SelectTrigger id="new-staff-doctor">
+                      <SelectValue placeholder="Select a doctor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {doctors.map((doctor) => (
+                        <SelectItem key={doctor.id} value={doctor.id}>
+                          {doctor.name} - {doctor.specialization} ({doctor.registrationNo})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {doctors.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No doctors available</p>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedStaffForAssignment(null)}>
+              Cancel
+            </Button>
+            {selectedStaffForAssignment?._id ? (
+              <Button
+                onClick={() => {
+                  if (selectedStaffForAssignment && selectedDoctorId) {
+                    assignDoctorMutation.mutate({
+                      userId: selectedStaffForAssignment._id,
+                      doctorId: selectedDoctorId,
+                    });
+                  }
+                }}
+                disabled={assignDoctorMutation.isPending || !selectedDoctorId}
+              >
+                {assignDoctorMutation.isPending ? 'Assigning...' : 'Assign Doctor'}
+              </Button>
+            ) : (
+              <Button
+                onClick={() => {
+                  const passwordInput = document.getElementById('new-staff-password') as HTMLInputElement;
+                  if (!selectedStaffForAssignment?.name || !selectedStaffForAssignment?.email || !passwordInput?.value || !selectedDoctorId) {
+                    toast.error('Please fill in all required fields');
+                    return;
+                  }
+                  adminApi.createStaff({
+                    name: selectedStaffForAssignment.name,
+                    email: selectedStaffForAssignment.email,
+                    password: passwordInput.value,
+                    phone: selectedStaffForAssignment.phone,
+                    doctorId: selectedDoctorId,
+                  }).then((response) => {
+                    if (response.success) {
+                      queryClient.invalidateQueries({ queryKey: ['admin-user-roles'] });
+                      toast.success('Staff member created successfully');
+                      setSelectedStaffForAssignment(null);
+                      setSelectedDoctorId('');
+                    }
+                  }).catch((error: any) => {
+                    toast.error(error.response?.data?.message || 'Failed to create staff');
+                  });
+                }}
+              >
+                Create Staff
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Role Change Dialog */}
       <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Change User Role</DialogTitle>
             <DialogDescription>
-              Update the role for {selectedUser?.profile?.name || 'this user'}
+              Update the role for {selectedUser?.name || 'this user'}
             </DialogDescription>
           </DialogHeader>
           <div className="py-4 space-y-4">
             <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
               <div>
-                <p className="font-medium">{selectedUser?.profile?.name}</p>
-                <p className="text-sm text-muted-foreground">{selectedUser?.profile?.email}</p>
+                <p className="font-medium">{selectedUser?.name}</p>
+                <p className="text-sm text-muted-foreground">{selectedUser?.email}</p>
               </div>
             </div>
             <div className="space-y-2">

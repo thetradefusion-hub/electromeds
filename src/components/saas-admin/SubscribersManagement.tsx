@@ -58,14 +58,16 @@ export default function SubscribersManagement({ subscriptions, isLoading }: Subs
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Users className="h-5 w-5" />
+    <Card className="border-border/50 shadow-sm">
+      <CardHeader className="border-b border-border/50 bg-gradient-to-r from-blue-500/5 to-cyan-500/5">
+        <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center">
+            <Users className="h-4 w-4 text-white" />
+          </div>
           Subscribed Doctors
         </CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 pt-6">
         {/* Filters */}
         <div className="flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
@@ -102,28 +104,40 @@ export default function SubscribersManagement({ subscriptions, isLoading }: Subs
           </Select>
         </div>
 
-        {/* Stats Summary */}
+        {/* Enhanced Stats Summary */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="bg-primary/10 rounded-lg p-4 text-center">
-            <p className="text-2xl font-bold text-primary">{subscriptions.filter(s => s.status === 'active').length}</p>
-            <p className="text-sm text-muted-foreground">Active</p>
+          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20 p-4 text-center hover:shadow-lg transition-all duration-300">
+            <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/5 rounded-full blur-xl -translate-y-1/2 translate-x-1/2" />
+            <p className="text-2xl font-bold bg-gradient-to-r from-emerald-500 to-emerald-600 bg-clip-text text-transparent relative z-10">
+              {subscriptions.filter(s => s.status === 'active').length}
+            </p>
+            <p className="text-sm text-muted-foreground mt-1 relative z-10">Active</p>
           </div>
-          <div className="bg-secondary/50 rounded-lg p-4 text-center">
-            <p className="text-2xl font-bold">{subscriptions.filter(s => s.status === 'trial').length}</p>
-            <p className="text-sm text-muted-foreground">Trial</p>
+          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-blue-500/10 to-blue-500/5 border border-blue-500/20 p-4 text-center hover:shadow-lg transition-all duration-300">
+            <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/5 rounded-full blur-xl -translate-y-1/2 translate-x-1/2" />
+            <p className="text-2xl font-bold bg-gradient-to-r from-blue-500 to-blue-600 bg-clip-text text-transparent relative z-10">
+              {subscriptions.filter(s => s.status === 'trial').length}
+            </p>
+            <p className="text-sm text-muted-foreground mt-1 relative z-10">Trial</p>
           </div>
-          <div className="bg-destructive/10 rounded-lg p-4 text-center">
-            <p className="text-2xl font-bold text-destructive">{subscriptions.filter(s => s.status === 'cancelled').length}</p>
-            <p className="text-sm text-muted-foreground">Cancelled</p>
+          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-red-500/10 to-red-500/5 border border-red-500/20 p-4 text-center hover:shadow-lg transition-all duration-300">
+            <div className="absolute top-0 right-0 w-20 h-20 bg-red-500/5 rounded-full blur-xl -translate-y-1/2 translate-x-1/2" />
+            <p className="text-2xl font-bold bg-gradient-to-r from-red-500 to-red-600 bg-clip-text text-transparent relative z-10">
+              {subscriptions.filter(s => s.status === 'cancelled').length}
+            </p>
+            <p className="text-sm text-muted-foreground mt-1 relative z-10">Cancelled</p>
           </div>
-          <div className="bg-muted rounded-lg p-4 text-center">
-            <p className="text-2xl font-bold">{subscriptions.length}</p>
-            <p className="text-sm text-muted-foreground">Total</p>
+          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-purple-500/10 to-purple-500/5 border border-purple-500/20 p-4 text-center hover:shadow-lg transition-all duration-300">
+            <div className="absolute top-0 right-0 w-20 h-20 bg-purple-500/5 rounded-full blur-xl -translate-y-1/2 translate-x-1/2" />
+            <p className="text-2xl font-bold bg-gradient-to-r from-purple-500 to-purple-600 bg-clip-text text-transparent relative z-10">
+              {subscriptions.length}
+            </p>
+            <p className="text-sm text-muted-foreground mt-1 relative z-10">Total</p>
           </div>
         </div>
 
-        {/* Table */}
-        <div className="border rounded-lg overflow-hidden">
+        {/* Enhanced Table */}
+        <div className="border rounded-xl overflow-hidden shadow-sm">
           <Table>
             <TableHeader>
               <TableRow>

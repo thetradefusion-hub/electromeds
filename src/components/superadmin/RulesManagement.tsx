@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { medicineRuleApi, MedicineRule as BackendRule } from '@/lib/api/medicineRule.api';
+import { symptomApi } from '@/lib/api/symptom.api';
+import { medicineApi } from '@/lib/api/medicine.api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -28,12 +30,14 @@ interface MedicineRule {
 }
 
 interface Symptom {
+  _id: string;
   id: string;
   name: string;
   category: string;
 }
 
 interface Medicine {
+  _id: string;
   id: string;
   name: string;
   category: string;
@@ -54,61 +58,94 @@ const RulesManagement = () => {
   });
   const queryClient = useQueryClient();
 
-  const { data: rules, isLoading } = useQuery({
+  const { data: rulesData, isLoading: rulesLoading } = useQuery({
     queryKey: ['admin-rules'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('medicine_rules')
-        .select('*')
-        .eq('is_global', true)
-        .order('priority', { ascending: false });
-
-      if (error) throw error;
-      return data as MedicineRule[];
+      const response = await medicineRuleApi.getMedicineRules();
+      if (!response.success) throw new Error(response.message || 'Failed to fetch rules');
+      
+      // Filter only global rules and map to frontend format
+      const globalRules = (response.data || [])
+        .filter(rule => rule.isGlobal)
+        .map(rule => ({
+          id: rule._id,
+          name: rule.name,
+          description: rule.description || null,
+          symptom_ids: rule.symptomIds || [],
+          medicine_ids: rule.medicineIds || [],
+          dosage: rule.dosage,
+          duration: rule.duration,
+          priority: rule.priority,
+          is_global: rule.isGlobal,
+          created_at: rule.createdAt,
+        }))
+        .sort((a, b) => b.priority - a.priority);
+      
+      return globalRules as MedicineRule[];
     },
   });
 
-  const { data: symptoms } = useQuery({
+  const { data: symptomsData, isLoading: symptomsLoading } = useQuery({
     queryKey: ['all-symptoms'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('symptoms')
-        .select('id, name, category')
-        .eq('is_global', true)
-        .order('name');
-
-      if (error) throw error;
-      return data as Symptom[];
+      const response = await symptomApi.getSymptoms();
+      if (!response.success) throw new Error(response.message || 'Failed to fetch symptoms');
+      
+      // Filter only global symptoms and map to frontend format
+      const globalSymptoms = (response.data || [])
+        .filter(symptom => symptom.isGlobal)
+        .map(symptom => ({
+          _id: symptom._id,
+          id: symptom._id,
+          name: symptom.name,
+          category: symptom.category,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      
+      return globalSymptoms as Symptom[];
     },
   });
 
-  const { data: medicines } = useQuery({
+  const { data: medicinesData, isLoading: medicinesLoading } = useQuery({
     queryKey: ['all-medicines'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('medicines')
-        .select('id, name, category')
-        .eq('is_global', true)
-        .order('name');
-
-      if (error) throw error;
-      return data as Medicine[];
+      const response = await medicineApi.getMedicines();
+      if (!response.success) throw new Error(response.message || 'Failed to fetch medicines');
+      
+      // Filter only global medicines and map to frontend format
+      const globalMedicines = (response.data || [])
+        .filter(medicine => medicine.isGlobal)
+        .map(medicine => ({
+          _id: medicine._id,
+          id: medicine._id,
+          name: medicine.name,
+          category: medicine.category,
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      
+      return globalMedicines as Medicine[];
     },
   });
+
+  const rules = rulesData;
+  const symptoms = symptomsData;
+  const medicines = medicinesData;
+  const isLoading = rulesLoading || symptomsLoading || medicinesLoading;
 
   const addMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      const { error } = await supabase.from('medicine_rules').insert({
+      const response = await medicineRuleApi.createMedicineRule({
         name: data.name,
-        description: data.description || null,
-        symptom_ids: data.symptom_ids,
-        medicine_ids: data.medicine_ids,
+        description: data.description || undefined,
+        symptomIds: data.symptom_ids,
+        medicineIds: data.medicine_ids,
         dosage: data.dosage,
         duration: data.duration,
         priority: data.priority,
-        is_global: true,
+        isGlobal: true,
       });
-      if (error) throw error;
+      if (!response.success) throw new Error(response.message || 'Failed to create rule');
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-rules'] });
@@ -116,26 +153,24 @@ const RulesManagement = () => {
       setIsAddDialogOpen(false);
       resetForm();
     },
-    onError: () => {
-      toast.error('Failed to add rule');
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to add rule');
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
-      const { error } = await supabase
-        .from('medicine_rules')
-        .update({
-          name: data.name,
-          description: data.description || null,
-          symptom_ids: data.symptom_ids,
-          medicine_ids: data.medicine_ids,
-          dosage: data.dosage,
-          duration: data.duration,
-          priority: data.priority,
-        })
-        .eq('id', id);
-      if (error) throw error;
+      const response = await medicineRuleApi.updateMedicineRule(id, {
+        name: data.name,
+        description: data.description || undefined,
+        symptomIds: data.symptom_ids,
+        medicineIds: data.medicine_ids,
+        dosage: data.dosage,
+        duration: data.duration,
+        priority: data.priority,
+      });
+      if (!response.success) throw new Error(response.message || 'Failed to update rule');
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-rules'] });
@@ -143,22 +178,22 @@ const RulesManagement = () => {
       setEditingRule(null);
       resetForm();
     },
-    onError: () => {
-      toast.error('Failed to update rule');
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to update rule');
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('medicine_rules').delete().eq('id', id);
-      if (error) throw error;
+      const response = await medicineRuleApi.deleteMedicineRule(id);
+      if (!response.success) throw new Error(response.message || 'Failed to delete rule');
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-rules'] });
       toast.success('Rule deleted successfully');
     },
-    onError: () => {
-      toast.error('Failed to delete rule');
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to delete rule');
     },
   });
 

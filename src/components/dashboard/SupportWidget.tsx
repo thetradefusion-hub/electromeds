@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { MessageSquare, Send, Loader2, HelpCircle, ChevronRight } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
-import { useDoctor } from '@/hooks/useDoctor';
+import { supportTicketApi } from '@/lib/api/supportTicket.api';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -26,22 +25,16 @@ const quickHelp = [
 ];
 
 export function SupportWidget() {
-  const { doctorId } = useDoctor();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [ticket, setTicket] = useState({
     subject: '',
     description: '',
-    category: 'general',
-    priority: 'medium',
+    category: 'general' as 'general' | 'billing' | 'technical' | 'feature_request' | 'bug',
+    priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
   });
 
   const handleSubmit = async () => {
-    if (!doctorId) {
-      toast.error('Please wait, loading your profile...');
-      return;
-    }
-
     if (!ticket.subject.trim() || !ticket.description.trim()) {
       toast.error('Please fill all fields');
       return;
@@ -50,21 +43,20 @@ export function SupportWidget() {
     setSubmitting(true);
 
     try {
-      const { error } = await supabase
-        .from('support_tickets')
-        .insert({
-          doctor_id: doctorId,
-          subject: ticket.subject,
-          description: ticket.description,
-          category: ticket.category,
-          priority: ticket.priority,
-        });
+      const response = await supportTicketApi.createSupportTicket({
+        subject: ticket.subject,
+        description: ticket.description,
+        category: ticket.category,
+        priority: ticket.priority,
+      });
 
-      if (error) throw error;
-
-      toast.success('Support ticket created! We\'ll get back to you soon.');
-      setTicket({ subject: '', description: '', category: 'general', priority: 'medium' });
-      setOpen(false);
+      if (response.success) {
+        toast.success('Support ticket created! We\'ll get back to you soon.');
+        setTicket({ subject: '', description: '', category: 'general', priority: 'medium' });
+        setOpen(false);
+      } else {
+        toast.error(response.message || 'Failed to create ticket');
+      }
     } catch (error) {
       console.error('Error creating ticket:', error);
       toast.error('Failed to create ticket');

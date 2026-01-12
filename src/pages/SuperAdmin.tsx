@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Activity, Pill, Stethoscope, BookOpen, TrendingUp, Clock, Shield } from 'lucide-react';
+import { Crown } from 'lucide-react';
 import DoctorsManagement from '@/components/superadmin/DoctorsManagement';
 import ClinicAnalytics from '@/components/superadmin/ClinicAnalytics';
 import SymptomsManagement from '@/components/superadmin/SymptomsManagement';
@@ -10,60 +11,61 @@ import RulesManagement from '@/components/superadmin/RulesManagement';
 import ActivityFeed from '@/components/superadmin/ActivityFeed';
 import DoctorPerformance from '@/components/superadmin/DoctorPerformance';
 import UserRolesManagement from '@/components/superadmin/UserRolesManagement';
+import AISettingsManagement from '@/components/superadmin/AISettingsManagement';
+import SubscriptionManagement from '@/components/superadmin/SubscriptionManagement';
+import { cn } from '@/lib/utils';
 
 const SuperAdmin = () => {
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('analytics');
+
+  // Set active tab from URL hash
+  useEffect(() => {
+    if (location.hash) {
+      const tabFromHash = location.hash.substring(1); // Remove #
+      if (tabFromHash && ['analytics', 'activity', 'performance', 'doctors', 'symptoms', 'medicines', 'rules', 'roles', 'ai-settings', 'subscriptions'].includes(tabFromHash)) {
+        setActiveTab(tabFromHash);
+      }
+    } else {
+      // If no hash, default to analytics
+      setActiveTab('analytics');
+    }
+  }, [location.hash, location.pathname]);
+
+  // Update URL hash when tab changes
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    // Update URL hash without page reload
+    window.history.replaceState(null, '', `/admin#${value}`);
+  };
+
 
   return (
     <MainLayout title="Super Admin" subtitle="Manage doctors, analytics, and global configurations">
-      <div className="space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Super Admin Dashboard</h1>
-          <p className="text-muted-foreground">Comprehensive platform management and analytics</p>
+      <div className="space-y-4">
+        {/* Compact Header */}
+        <div className="flex items-center gap-2.5 pb-3 border-b border-border/50">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-primary/80 shadow-sm">
+            <Crown className="h-4 w-4 text-primary-foreground" />
+          </div>
+          <div>
+            <h1 className="text-lg font-semibold text-foreground">
+              Super Admin Dashboard
+            </h1>
+            <p className="text-xs text-muted-foreground">Platform management and analytics</p>
+          </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="flex flex-wrap gap-1 h-auto p-1">
-            <TabsTrigger value="analytics" className="gap-2">
-              <Activity className="h-4 w-4" />
-              <span className="hidden sm:inline">Analytics</span>
-            </TabsTrigger>
-            <TabsTrigger value="activity" className="gap-2">
-              <Clock className="h-4 w-4" />
-              <span className="hidden sm:inline">Activity</span>
-            </TabsTrigger>
-            <TabsTrigger value="performance" className="gap-2">
-              <TrendingUp className="h-4 w-4" />
-              <span className="hidden sm:inline">Performance</span>
-            </TabsTrigger>
-            <TabsTrigger value="doctors" className="gap-2">
-              <Users className="h-4 w-4" />
-              <span className="hidden sm:inline">Doctors</span>
-            </TabsTrigger>
-            <TabsTrigger value="symptoms" className="gap-2">
-              <Stethoscope className="h-4 w-4" />
-              <span className="hidden sm:inline">Symptoms</span>
-            </TabsTrigger>
-            <TabsTrigger value="medicines" className="gap-2">
-              <Pill className="h-4 w-4" />
-              <span className="hidden sm:inline">Medicines</span>
-            </TabsTrigger>
-            <TabsTrigger value="rules" className="gap-2">
-              <BookOpen className="h-4 w-4" />
-              <span className="hidden sm:inline">Rules</span>
-            </TabsTrigger>
-            <TabsTrigger value="roles" className="gap-2">
-              <Shield className="h-4 w-4" />
-              <span className="hidden sm:inline">User Roles</span>
-            </TabsTrigger>
-          </TabsList>
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
 
-          <TabsContent value="analytics">
-            <ClinicAnalytics />
+          <TabsContent value="analytics" className="mt-0">
+            <div className="animate-in fade-in-50 duration-300">
+              <ClinicAnalytics />
+            </div>
           </TabsContent>
 
-          <TabsContent value="activity">
-            <div className="grid gap-6 lg:grid-cols-2">
+          <TabsContent value="activity" className="mt-0">
+            <div className="grid gap-6 lg:grid-cols-2 animate-in fade-in-50 duration-300">
               <ActivityFeed />
               <div className="space-y-6">
                 <DoctorPerformance />
@@ -71,28 +73,52 @@ const SuperAdmin = () => {
             </div>
           </TabsContent>
 
-          <TabsContent value="performance">
-            <DoctorPerformance />
+          <TabsContent value="performance" className="mt-0">
+            <div className="animate-in fade-in-50 duration-300">
+              <DoctorPerformance />
+            </div>
           </TabsContent>
 
-          <TabsContent value="doctors">
-            <DoctorsManagement />
+          <TabsContent value="doctors" className="mt-0">
+            <div className="animate-in fade-in-50 duration-300">
+              <DoctorsManagement />
+            </div>
           </TabsContent>
 
-          <TabsContent value="symptoms">
-            <SymptomsManagement />
+          <TabsContent value="symptoms" className="mt-0">
+            <div className="animate-in fade-in-50 duration-300">
+              <SymptomsManagement />
+            </div>
           </TabsContent>
 
-          <TabsContent value="medicines">
-            <MedicinesManagement />
+          <TabsContent value="medicines" className="mt-0">
+            <div className="animate-in fade-in-50 duration-300">
+              <MedicinesManagement />
+            </div>
           </TabsContent>
 
-          <TabsContent value="rules">
-            <RulesManagement />
+          <TabsContent value="rules" className="mt-0">
+            <div className="animate-in fade-in-50 duration-300">
+              <RulesManagement />
+            </div>
           </TabsContent>
 
-          <TabsContent value="roles">
-            <UserRolesManagement />
+          <TabsContent value="roles" className="mt-0">
+            <div className="animate-in fade-in-50 duration-300">
+              <UserRolesManagement />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="ai-settings" className="mt-0">
+            <div className="animate-in fade-in-50 duration-300">
+              <AISettingsManagement />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="subscriptions" className="mt-0">
+            <div className="animate-in fade-in-50 duration-300">
+              <SubscriptionManagement />
+            </div>
           </TabsContent>
         </Tabs>
       </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
-import { addDays, isAfter, isBefore, startOfDay, endOfDay, differenceInDays } from 'date-fns';
+import { prescriptionApi } from '@/lib/api/prescription.api';
+import { addDays, isAfter, isBefore, startOfDay, differenceInDays } from 'date-fns';
 
 export interface Notification {
   id: string;
@@ -32,90 +32,71 @@ export const useNotifications = () => {
         return;
       }
 
-      // Get doctor ID
-      const { data: doctorData } = await supabase
-        .from('doctors')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (!doctorData) {
-        setLoading(false);
-        return;
-      }
-
-      // Fetch prescriptions with follow-up dates
-      const { data: prescriptions, error } = await supabase
-        .from('prescriptions')
-        .select(`
-          id,
-          follow_up_date,
-          patient:patients(id, name, patient_id)
-        `)
-        .eq('doctor_id', doctorData.id)
-        .not('follow_up_date', 'is', null)
-        .order('follow_up_date', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching follow-ups:', error);
-        setLoading(false);
-        return;
-      }
-
-      const today = startOfDay(new Date());
-      const upcomingLimit = addDays(today, 7); // Show follow-ups within next 7 days
-      const newNotifications: Notification[] = [];
-
-      prescriptions?.forEach((rx) => {
-        if (!rx.follow_up_date || !rx.patient) return;
-
-        const followUpDate = startOfDay(new Date(rx.follow_up_date));
-        const patient = rx.patient as { id: string; name: string; patient_id: string };
-        const daysDiff = differenceInDays(followUpDate, today);
-
-        // Overdue follow-ups (up to 30 days in the past)
-        if (isBefore(followUpDate, today) && daysDiff >= -30) {
-          newNotifications.push({
-            id: `overdue-${rx.id}`,
-            type: 'followup_overdue',
-            title: 'Overdue Follow-up',
-            message: `${patient.name} missed their follow-up ${Math.abs(daysDiff)} day${Math.abs(daysDiff) !== 1 ? 's' : ''} ago`,
-            date: rx.follow_up_date,
-            patientId: patient.id,
-            patientName: patient.name,
-            prescriptionId: rx.id,
-            read: readIds.has(`overdue-${rx.id}`),
-          });
+      try {
+        // Fetch prescriptions with follow-up dates
+        const response = await prescriptionApi.getPrescriptions();
+        if (!response.success || !response.data) {
+          setLoading(false);
+          return;
         }
-        // Today's follow-ups
-        else if (daysDiff === 0) {
-          newNotifications.push({
-            id: `today-${rx.id}`,
-            type: 'followup_today',
-            title: 'Follow-up Today',
-            message: `${patient.name} has a follow-up scheduled for today`,
-            date: rx.follow_up_date,
-            patientId: patient.id,
-            patientName: patient.name,
-            prescriptionId: rx.id,
-            read: readIds.has(`today-${rx.id}`),
-          });
-        }
-        // Upcoming follow-ups (next 7 days)
-        else if (isAfter(followUpDate, today) && isBefore(followUpDate, upcomingLimit)) {
-          newNotifications.push({
-            id: `upcoming-${rx.id}`,
-            type: 'followup_upcoming',
-            title: 'Upcoming Follow-up',
-            message: `${patient.name} has a follow-up in ${daysDiff} day${daysDiff !== 1 ? 's' : ''}`,
-            date: rx.follow_up_date,
-            patientId: patient.id,
-            patientName: patient.name,
-            prescriptionId: rx.id,
-            read: readIds.has(`upcoming-${rx.id}`),
-          });
-        }
-      });
+
+        const prescriptions = response.data.filter((rx) => rx.followUpDate);
+        const today = startOfDay(new Date());
+        const upcomingLimit = addDays(today, 7); // Show follow-ups within next 7 days
+        const newNotifications: Notification[] = [];
+
+        prescriptions.forEach((rx) => {
+          if (!rx.followUpDate) return;
+
+          const followUpDate = startOfDay(new Date(rx.followUpDate));
+          const patient = typeof rx.patientId === 'object' ? rx.patientId : null;
+          if (!patient) return;
+
+          const daysDiff = differenceInDays(followUpDate, today);
+
+          // Overdue follow-ups (up to 30 days in the past)
+          if (isBefore(followUpDate, today) && daysDiff >= -30) {
+            newNotifications.push({
+              id: `overdue-${rx._id}`,
+              type: 'followup_overdue',
+              title: 'Overdue Follow-up',
+              message: `${patient.name} missed their follow-up ${Math.abs(daysDiff)} day${Math.abs(daysDiff) !== 1 ? 's' : ''} ago`,
+              date: rx.followUpDate,
+              patientId: patient._id,
+              patientName: patient.name,
+              prescriptionId: rx._id,
+              read: readIds.has(`overdue-${rx._id}`),
+            });
+          }
+          // Today's follow-ups
+          else if (daysDiff === 0) {
+            newNotifications.push({
+              id: `today-${rx._id}`,
+              type: 'followup_today',
+              title: 'Follow-up Today',
+              message: `${patient.name} has a follow-up scheduled for today`,
+              date: rx.followUpDate,
+              patientId: patient._id,
+              patientName: patient.name,
+              prescriptionId: rx._id,
+              read: readIds.has(`today-${rx._id}`),
+            });
+          }
+          // Upcoming follow-ups (next 7 days)
+          else if (isAfter(followUpDate, today) && isBefore(followUpDate, upcomingLimit)) {
+            newNotifications.push({
+              id: `upcoming-${rx._id}`,
+              type: 'followup_upcoming',
+              title: 'Upcoming Follow-up',
+              message: `${patient.name} has a follow-up in ${daysDiff} day${daysDiff !== 1 ? 's' : ''}`,
+              date: rx.followUpDate,
+              patientId: patient._id,
+              patientName: patient.name,
+              prescriptionId: rx._id,
+              read: readIds.has(`upcoming-${rx._id}`),
+            });
+          }
+        });
 
       // Sort: overdue first, then today, then upcoming
       newNotifications.sort((a, b) => {
@@ -126,8 +107,12 @@ export const useNotifications = () => {
         return new Date(a.date).getTime() - new Date(b.date).getTime();
       });
 
-      setNotifications(newNotifications);
-      setLoading(false);
+        setNotifications(newNotifications);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+        setLoading(false);
+      }
     };
 
     fetchFollowUps();

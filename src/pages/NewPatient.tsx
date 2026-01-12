@@ -1,13 +1,23 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { useNavigate } from 'react-router-dom';
-import { UserPlus, ArrowLeft, Save, Loader2 } from 'lucide-react';
+import { UserPlus, ArrowLeft, Save, Loader2, Stethoscope } from 'lucide-react';
 import { usePatients } from '@/hooks/usePatients';
+import { useAuth } from '@/hooks/useAuth';
+import { useDoctor } from '@/hooks/useDoctor';
+import { adminApi } from '@/lib/api/admin.api';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from 'sonner';
 
 export default function NewPatient() {
   const navigate = useNavigate();
-  const { createPatient, doctorId } = usePatients();
+  const { createPatient } = usePatients();
+  const { role, user } = useAuth();
+  const { doctorId } = useDoctor();
   const [submitting, setSubmitting] = useState(false);
+  const [selectedDoctorId, setSelectedDoctorId] = useState<string>('');
+  const [doctors, setDoctors] = useState<any[]>([]);
+  const [loadingDoctors, setLoadingDoctors] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     age: '',
@@ -17,27 +27,69 @@ export default function NewPatient() {
     case_type: 'new',
   });
 
+  // Fetch doctors list for admin
+  useEffect(() => {
+    if (role === 'super_admin') {
+      setLoadingDoctors(true);
+      adminApi.getAllDoctors()
+        .then((response) => {
+          if (response.success && response.data) {
+            setDoctors(response.data);
+            if (response.data.length > 0) {
+              setSelectedDoctorId(response.data[0].id);
+            }
+          }
+        })
+        .catch((error) => {
+          console.error('Error fetching doctors:', error);
+        })
+        .finally(() => {
+          setLoadingDoctors(false);
+        });
+    }
+  }, [role]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!doctorId) {
+    console.log('Form submitted:', { role, doctorId, selectedDoctorId, formData });
+    
+    // For admin, require doctor selection
+    if (role === 'super_admin' && !selectedDoctorId) {
+      toast.error('Please select a doctor');
+      return;
+    }
+    
+    // Validate required fields
+    if (!formData.name || !formData.age || !formData.mobile) {
+      toast.error('Please fill in all required fields');
       return;
     }
 
     setSubmitting(true);
-    const success = await createPatient({
-      name: formData.name,
-      age: parseInt(formData.age, 10),
-      gender: formData.gender,
-      mobile: formData.mobile,
-      address: formData.address || undefined,
-      case_type: formData.case_type,
-    });
+    try {
+      const patientData = {
+        name: formData.name,
+        age: parseInt(formData.age, 10),
+        gender: formData.gender,
+        mobile: formData.mobile,
+        address: formData.address || undefined,
+        caseType: formData.case_type,
+        doctorId: role === 'super_admin' ? selectedDoctorId : undefined,
+      };
+      
+      console.log('Creating patient with data:', patientData);
+      
+      const success = await createPatient(patientData);
 
-    setSubmitting(false);
-    
-    if (success) {
-      navigate('/patients');
+      if (success) {
+        navigate('/patients');
+      }
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      toast.error('Failed to register patient. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -69,6 +121,62 @@ export default function NewPatient() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
+            {/* Assigned Doctor Display for Staff */}
+            {role === 'staff' && (
+              <div className="p-4 rounded-xl bg-primary/5 border border-primary/20">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                    <Stethoscope className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-foreground">Assigned Doctor</p>
+                    {user?.assignedDoctorId ? (
+                      <p className="text-sm text-muted-foreground">
+                        Patient will be assigned to your assigned doctor
+                      </p>
+                    ) : (
+                      <p className="text-sm text-destructive">
+                        You are not assigned to any doctor. Please contact admin.
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Doctor Selector for Admin */}
+            {role === 'super_admin' && (
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-foreground">
+                  Select Doctor *
+                </label>
+                {loadingDoctors ? (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading doctors...
+                  </div>
+                ) : (
+                  <Select value={selectedDoctorId} onValueChange={setSelectedDoctorId} required>
+                    <SelectTrigger className="medical-input">
+                      <SelectValue placeholder="Select a doctor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {doctors.map((doctor) => (
+                        <SelectItem key={doctor.id} value={doctor.id}>
+                          {doctor.name} - {doctor.specialization} ({doctor.registrationNo})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {doctors.length === 0 && !loadingDoctors && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    No doctors available. Please create a doctor account first.
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-foreground">
@@ -189,7 +297,10 @@ export default function NewPatient() {
               <button 
                 type="submit" 
                 className="medical-btn-primary"
-                disabled={submitting || !doctorId}
+                disabled={
+                  submitting || 
+                  (role === 'super_admin' ? (!selectedDoctorId || doctors.length === 0) : false)
+                }
               >
                 {submitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

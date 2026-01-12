@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
-import { supabase } from '@/integrations/supabase/client';
+import { patientApi } from '@/lib/api/patient.api';
+import { prescriptionApi } from '@/lib/api/prescription.api';
+import { doctorApi } from '@/lib/api/doctor.api';
 import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
 import { 
@@ -140,71 +142,88 @@ export default function PatientHistory() {
 
       setLoading(true);
 
-      // Fetch patient details
-      const { data: patientData, error: patientError } = await supabase
-        .from('patients')
-        .select('*')
-        .eq('id', patientId)
-        .maybeSingle();
+      try {
+        // Fetch patient details
+        const patientRes = await patientApi.getPatient(patientId);
+        if (!patientRes.success || !patientRes.data) {
+          console.error('Error fetching patient');
+          setLoading(false);
+          return;
+        }
 
-      if (patientError || !patientData) {
-        console.error('Error fetching patient:', patientError);
-        setLoading(false);
-        return;
-      }
-
-      setPatient(patientData);
-
-      // Fetch prescriptions for this patient
-      const { data: prescriptionsData, error: prescriptionsError } = await supabase
-        .from('prescriptions')
-        .select('*')
-        .eq('patient_id', patientId)
-        .order('created_at', { ascending: false });
-
-      if (prescriptionsError) {
-        console.error('Error fetching prescriptions:', prescriptionsError);
-      } else {
-        const parsed = (prescriptionsData || []).map((rx) => ({
-          ...rx,
-          symptoms: parseJsonArray<PrescriptionSymptom>(rx.symptoms),
-          medicines: parseJsonArray<PrescriptionMedicine>(rx.medicines),
-        }));
-        setPrescriptions(parsed);
-      }
-
-      // Fetch medical reports for this patient
-      const { data: reportsData, error: reportsError } = await supabase
-        .from('patient_medical_reports' as any)
-        .select('*')
-        .eq('patient_id', patientId)
-        .order('created_at', { ascending: false });
-
-      if (reportsError) {
-        console.error('Error fetching medical reports:', reportsError);
-      } else {
-        setMedicalReports((reportsData || []) as unknown as MedicalReport[]);
-      }
-      const { data: doctorData } = await supabase
-        .from('doctors')
-        .select('clinic_name, clinic_address, qualification, registration_no, specialization')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (doctorData) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('name')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        setDoctorInfo({
-          ...doctorData,
-          name: profileData?.name || 'Doctor',
+        const patientData = patientRes.data;
+        setPatient({
+          id: patientData._id,
+          patient_id: patientData.patientId,
+          name: patientData.name,
+          age: patientData.age,
+          gender: patientData.gender,
+          mobile: patientData.mobile,
+          address: patientData.address || null,
+          case_type: patientData.caseType,
+          visit_date: patientData.visitDate,
+          created_at: patientData.createdAt,
         });
-      }
 
-      setLoading(false);
+        // Fetch prescriptions for this patient
+        const prescriptionsRes = await prescriptionApi.getPrescriptions();
+        if (prescriptionsRes.success && prescriptionsRes.data) {
+          const patientPrescriptions = prescriptionsRes.data
+            .filter(rx => {
+              const rxPatientId = typeof rx.patientId === 'string' 
+                ? rx.patientId 
+                : rx.patientId?._id;
+              return rxPatientId === patientId;
+            })
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .map((rx) => ({
+              id: rx._id,
+              prescription_no: rx.prescriptionNo,
+              symptoms: (rx.symptoms || []).map((s: any) => ({
+                id: s._id || s.id || '',
+                name: s.name || s.symptomName || '',
+                severity: s.severity || 'medium',
+                duration: s.duration || 0,
+                durationUnit: s.durationUnit || 'days',
+              })),
+              medicines: (rx.medicines || []).map((m: any) => ({
+                id: m._id || m.id || '',
+                name: m.name || m.medicineName || '',
+                category: m.category || '',
+                dosage: m.dosage || '',
+                duration: m.duration || '',
+                instructions: m.instructions || '',
+              })),
+              diagnosis: rx.diagnosis || null,
+              advice: rx.advice || null,
+              follow_up_date: rx.followUpDate || null,
+              created_at: rx.createdAt,
+            }));
+          setPrescriptions(patientPrescriptions);
+        }
+
+        // Medical reports - TODO: Implement backend API for medical reports
+        // For now, set empty array
+        setMedicalReports([]);
+
+        // Fetch doctor info
+        const doctorRes = await doctorApi.getMyProfile();
+        if (doctorRes.success && doctorRes.data) {
+          const doctor = doctorRes.data.doctor;
+          setDoctorInfo({
+            name: doctor.name,
+            clinic_name: doctor.clinicName || null,
+            clinic_address: doctor.clinicAddress || null,
+            qualification: doctor.qualification,
+            registration_no: doctor.registrationNo,
+            specialization: doctor.specialization,
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching patient history:', error);
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchData();

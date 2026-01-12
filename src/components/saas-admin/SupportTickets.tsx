@@ -120,47 +120,67 @@ export default function SupportTickets({ tickets, isLoading, onUpdateStatus }: S
 
   return (
     <div className="space-y-6">
-      {/* Stats */}
+      {/* Enhanced Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="bg-destructive/10 border-destructive/20">
-          <CardContent className="pt-4">
+        <Card className="relative overflow-hidden bg-gradient-to-br from-red-500/10 to-red-500/5 border-red-500/20 hover:shadow-lg transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+          <CardContent className="pt-4 relative z-10">
             <div className="flex items-center gap-3">
-              <AlertCircle className="h-8 w-8 text-destructive" />
+              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-lg">
+                <AlertCircle className="h-5 w-5 text-white" />
+              </div>
               <div>
-                <p className="text-2xl font-bold text-destructive">{stats.open}</p>
+                <p className="text-2xl font-bold bg-gradient-to-r from-red-500 to-red-600 bg-clip-text text-transparent">
+                  {stats.open}
+                </p>
                 <p className="text-sm text-muted-foreground">Open Tickets</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-primary/10 border-primary/20">
-          <CardContent className="pt-4">
+        <Card className="relative overflow-hidden bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20 hover:shadow-lg transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+          <CardContent className="pt-4 relative z-10">
             <div className="flex items-center gap-3">
-              <Clock className="h-8 w-8 text-primary" />
+              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+                <Clock className="h-5 w-5 text-white" />
+              </div>
               <div>
-                <p className="text-2xl font-bold text-primary">{stats.inProgress}</p>
+                <p className="text-2xl font-bold bg-gradient-to-r from-blue-500 to-blue-600 bg-clip-text text-transparent">
+                  {stats.inProgress}
+                </p>
                 <p className="text-sm text-muted-foreground">In Progress</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-success/10 border-success/20">
-          <CardContent className="pt-4">
+        <Card className="relative overflow-hidden bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border-emerald-500/20 hover:shadow-lg transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+          <CardContent className="pt-4 relative z-10">
             <div className="flex items-center gap-3">
-              <CheckCircle className="h-8 w-8 text-success" />
+              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg">
+                <CheckCircle className="h-5 w-5 text-white" />
+              </div>
               <div>
-                <p className="text-2xl font-bold text-success">{stats.resolved}</p>
+                <p className="text-2xl font-bold bg-gradient-to-r from-emerald-500 to-emerald-600 bg-clip-text text-transparent">
+                  {stats.resolved}
+                </p>
                 <p className="text-sm text-muted-foreground">Resolved</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card className="bg-orange-500/10 border-orange-500/20">
-          <CardContent className="pt-4">
+        <Card className="relative overflow-hidden bg-gradient-to-br from-orange-500/10 to-orange-500/5 border-orange-500/20 hover:shadow-lg transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-orange-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+          <CardContent className="pt-4 relative z-10">
             <div className="flex items-center gap-3">
-              <ArrowUpCircle className="h-8 w-8 text-orange-500" />
+              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center shadow-lg">
+                <ArrowUpCircle className="h-5 w-5 text-white" />
+              </div>
               <div>
-                <p className="text-2xl font-bold text-orange-500">{stats.urgent}</p>
+                <p className="text-2xl font-bold bg-gradient-to-r from-orange-500 to-orange-600 bg-clip-text text-transparent">
+                  {stats.urgent}
+                </p>
                 <p className="text-sm text-muted-foreground">Urgent</p>
               </div>
             </div>
@@ -168,15 +188,17 @@ export default function SupportTickets({ tickets, isLoading, onUpdateStatus }: S
         </Card>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5" />
+      {/* Enhanced Filters */}
+      <Card className="border-border/50 shadow-sm">
+        <CardHeader className="border-b border-border/50 bg-gradient-to-r from-purple-500/5 to-pink-500/5">
+          <CardTitle className="flex items-center gap-2 text-lg font-semibold">
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+              <MessageSquare className="h-4 w-4 text-white" />
+            </div>
             Support Tickets
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
+import { doctorApi } from '@/lib/api/doctor.api';
 
 interface DoctorInfo {
   id: string;
@@ -26,39 +26,69 @@ export function useDoctor() {
       }
 
       try {
-        const { data: doctorData, error } = await supabase
-          .from('doctors')
-          .select('id, clinic_name, clinic_address, qualification, registration_no, specialization')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        if (error) {
-          console.error('Error fetching doctor:', error);
+        // For super_admin, use user ID as doctor ID
+        if (user?.role === 'super_admin') {
+          setDoctorId(user.id);
+          setDoctorInfo({
+            id: user.id,
+            name: user.name || 'Super Admin',
+            clinicName: null,
+            clinicAddress: null,
+            qualification: 'System Administrator',
+            registrationNo: 'ADMIN',
+            specialization: 'Administration',
+          });
           setLoading(false);
           return;
         }
 
-        if (doctorData) {
-          // Fetch profile for name
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('name')
-            .eq('user_id', user.id)
-            .maybeSingle();
-
-          setDoctorId(doctorData.id);
+        // For staff, use assignedDoctorId
+        if (user?.role === 'staff' && user?.assignedDoctorId) {
+          // For staff, we just need the doctorId for queries
+          // Doctor info is not critical for staff dashboard
+          console.log('useDoctor: Staff assignedDoctorId:', user.assignedDoctorId);
+          setDoctorId(user.assignedDoctorId);
           setDoctorInfo({
-            id: doctorData.id,
-            name: profileData?.name || 'Doctor',
-            clinicName: doctorData.clinic_name,
-            clinicAddress: doctorData.clinic_address,
-            qualification: doctorData.qualification,
-            registrationNo: doctorData.registration_no,
-            specialization: doctorData.specialization,
+            id: user.assignedDoctorId,
+            name: 'Assigned Doctor',
+            clinicName: null,
+            clinicAddress: null,
+            qualification: '',
+            registrationNo: '',
+            specialization: '',
+          });
+          setLoading(false);
+          return;
+        }
+        
+        // If staff but no assignedDoctorId
+        if (user?.role === 'staff' && !user?.assignedDoctorId) {
+          console.warn('useDoctor: Staff has no assignedDoctorId');
+          setLoading(false);
+          return;
+        }
+
+        // For doctors, fetch doctor profile
+        const response = await doctorApi.getMyProfile();
+        if (response.success && response.data) {
+          const doctor = response.data.doctor;
+          setDoctorId(doctor.id);
+          setDoctorInfo({
+            id: doctor.id,
+            name: doctor.name,
+            clinicName: doctor.clinicName || null,
+            clinicAddress: doctor.clinicAddress || null,
+            qualification: doctor.qualification,
+            registrationNo: doctor.registrationNo,
+            specialization: doctor.specialization,
           });
         }
       } catch (error) {
         console.error('Error fetching doctor:', error);
+        // If doctor profile not found but user is doctor, still set user ID
+        if (user?.role === 'doctor') {
+          setDoctorId(user.id);
+        }
       } finally {
         setLoading(false);
       }

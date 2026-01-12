@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { adminApi } from '@/lib/api/admin.api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,12 +14,12 @@ import { Plus, Search, Edit, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Symptom {
-  id: string;
+  _id: string;
   name: string;
   category: string;
-  description: string | null;
-  is_global: boolean;
-  created_at: string;
+  description?: string;
+  isGlobal: boolean;
+  createdAt: string;
 }
 
 const SYMPTOM_CATEGORIES = [
@@ -50,73 +50,81 @@ const SymptomsManagement = () => {
   const { data: symptoms, isLoading } = useQuery({
     queryKey: ['admin-symptoms'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('symptoms')
-        .select('*')
-        .eq('is_global', true)
-        .order('category', { ascending: true })
-        .order('name', { ascending: true });
-
-      if (error) throw error;
-      return data as Symptom[];
+      const response = await adminApi.getGlobalSymptoms();
+      if (response.success && response.data) {
+        return response.data.map((s) => ({
+          _id: s._id,
+          name: s.name,
+          category: s.category,
+          description: s.description,
+          isGlobal: s.isGlobal,
+          createdAt: s.createdAt,
+        }));
+      }
+      return [];
     },
   });
 
   const addMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      const { error } = await supabase.from('symptoms').insert({
+      const response = await adminApi.createGlobalSymptom({
         name: data.name,
         category: data.category,
-        description: data.description || null,
-        is_global: true,
+        description: data.description || undefined,
       });
-      if (error) throw error;
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to create symptom');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-symptoms'] });
+      queryClient.invalidateQueries({ queryKey: ['symptoms'] });
       toast.success('Symptom added successfully');
       setIsAddDialogOpen(false);
       resetForm();
     },
-    onError: () => {
-      toast.error('Failed to add symptom');
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to add symptom');
     },
   });
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
-      const { error } = await supabase
-        .from('symptoms')
-        .update({
-          name: data.name,
-          category: data.category,
-          description: data.description || null,
-        })
-        .eq('id', id);
-      if (error) throw error;
+      const response = await adminApi.updateGlobalSymptom(id, {
+        name: data.name,
+        category: data.category,
+        description: data.description || undefined,
+      });
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to update symptom');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-symptoms'] });
+      queryClient.invalidateQueries({ queryKey: ['symptoms'] });
       toast.success('Symptom updated successfully');
       setEditingSymptom(null);
       resetForm();
     },
-    onError: () => {
-      toast.error('Failed to update symptom');
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to update symptom');
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('symptoms').delete().eq('id', id);
-      if (error) throw error;
+      const response = await adminApi.deleteGlobalSymptom(id);
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to delete symptom');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-symptoms'] });
+      queryClient.invalidateQueries({ queryKey: ['symptoms'] });
       toast.success('Symptom deleted successfully');
     },
-    onError: () => {
-      toast.error('Failed to delete symptom');
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to delete symptom');
     },
   });
 
@@ -140,7 +148,7 @@ const SymptomsManagement = () => {
     }
 
     if (editingSymptom) {
-      updateMutation.mutate({ id: editingSymptom.id, data: formData });
+      updateMutation.mutate({ id: editingSymptom._id, data: formData });
     } else {
       addMutation.mutate(formData);
     }
@@ -279,7 +287,7 @@ const SymptomsManagement = () => {
                   </TableRow>
                 ) : (
                   filteredSymptoms?.map((symptom) => (
-                    <TableRow key={symptom.id}>
+                    <TableRow key={symptom._id}>
                       <TableCell className="font-medium">{symptom.name}</TableCell>
                       <TableCell>
                         <Badge variant="secondary">{symptom.category}</Badge>
@@ -299,7 +307,7 @@ const SymptomsManagement = () => {
                           variant="ghost"
                           size="icon"
                           className="text-destructive hover:text-destructive"
-                          onClick={() => deleteMutation.mutate(symptom.id)}
+                          onClick={() => deleteMutation.mutate(symptom._id)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>

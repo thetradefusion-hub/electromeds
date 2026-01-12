@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { usePublicBooking, DoctorAvailability } from '@/hooks/useAppointments';
-import { supabase } from '@/integrations/supabase/client';
+import { doctorApi, PublicDoctor } from '@/lib/api/doctor.api';
 import { Calendar } from '@/components/ui/calendar';
 import { format, addMinutes, parse, isBefore, startOfDay, isPast, isToday } from 'date-fns';
 import {
@@ -53,26 +53,28 @@ export default function BookAppointment() {
   // Fetch doctors list
   useEffect(() => {
     const fetchDoctors = async () => {
-      const { data } = await supabase
-        .from('doctors')
-        .select(`
-          id,
-          clinic_name,
-          clinic_address,
-          specialization,
-          profile:profiles!doctors_user_id_fkey(name, email)
-        `);
-      
-      if (data) {
-        // Transform the data to handle the profile array
-        const transformedData = data.map(doctor => ({
-          ...doctor,
-          profile: Array.isArray(doctor.profile) ? doctor.profile[0] : doctor.profile
-        }));
-        setDoctors(transformedData as DoctorInfo[]);
-        if (doctorIdParam && transformedData.some((d) => d.id === doctorIdParam)) {
-          setSelectedDoctor(doctorIdParam);
+      try {
+        const response = await doctorApi.getPublicDoctors();
+        if (response.success && response.data) {
+          // Transform backend format to frontend format
+          const transformedData: DoctorInfo[] = response.data.map((doctor: PublicDoctor) => ({
+            id: doctor.id,
+            clinic_name: doctor.clinicName,
+            clinic_address: doctor.clinicAddress,
+            specialization: doctor.specialization,
+            profile: {
+              name: doctor.name,
+              email: doctor.email,
+            },
+          }));
+          setDoctors(transformedData);
+          if (doctorIdParam && transformedData.some((d) => d.id === doctorIdParam)) {
+            setSelectedDoctor(doctorIdParam);
+          }
         }
+      } catch (error) {
+        console.error('Error fetching doctors:', error);
+        toast.error('Failed to load doctors list');
       }
     };
     fetchDoctors();

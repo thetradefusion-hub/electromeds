@@ -1,25 +1,51 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
-import { Json } from '@/integrations/supabase/types';
+import { prescriptionApi, Prescription, CreatePrescriptionData, PrescriptionSymptom, PrescriptionMedicine } from '@/lib/api/prescription.api';
+import { doctorApi } from '@/lib/api/doctor.api';
 
-export interface PrescriptionSymptom {
-  id: string;
-  name: string;
-  severity: string;
-  duration: number;
-  durationUnit: string;
-}
+// Map backend Prescription to frontend format
+const mapPrescription = (rx: Prescription) => {
+  const patient = typeof rx.patientId === 'object' ? rx.patientId : null;
+  
+  return {
+    id: rx._id,
+    prescription_no: rx.prescriptionNo,
+    patient_id: typeof rx.patientId === 'string' ? rx.patientId : patient?._id || '',
+    doctor_id: rx.doctorId,
+    symptoms: rx.symptoms.map((s) => ({
+      id: s.symptomId,
+      name: s.name,
+      severity: s.severity,
+      duration: s.duration,
+      durationUnit: s.durationUnit,
+    })),
+    medicines: rx.medicines.map((m) => ({
+      id: m.medicineId,
+      name: m.name,
+      category: m.category,
+      dosage: m.dosage,
+      duration: m.duration,
+      instructions: m.instructions,
+    })),
+    diagnosis: rx.diagnosis || null,
+    advice: rx.advice || null,
+    follow_up_date: rx.followUpDate || null,
+    created_at: rx.createdAt,
+    updated_at: rx.updatedAt,
+    patient: patient ? {
+      id: patient._id,
+      patient_id: patient.patientId,
+      name: patient.name,
+      age: patient.age,
+      gender: patient.gender,
+      mobile: patient.mobile,
+      address: patient.address || null,
+    } : undefined,
+  };
+};
 
-export interface PrescriptionMedicine {
-  id: string;
-  name: string;
-  category: string;
-  dosage: string;
-  duration: string;
-  instructions?: string;
-}
+export type { PrescriptionSymptom, PrescriptionMedicine, CreatePrescriptionData };
 
 export interface Prescription {
   id: string;
@@ -44,21 +70,6 @@ export interface Prescription {
   };
 }
 
-export interface CreatePrescriptionData {
-  patient_id: string;
-  symptoms: PrescriptionSymptom[];
-  medicines: PrescriptionMedicine[];
-  diagnosis?: string;
-  advice?: string;
-  follow_up_date?: string;
-}
-
-const parseJsonArray = <T>(data: Json | null | undefined): T[] => {
-  if (!data) return [];
-  if (Array.isArray(data)) return data as unknown as T[];
-  return [];
-};
-
 export const usePrescriptions = () => {
   const { user } = useAuth();
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
@@ -79,30 +90,23 @@ export const usePrescriptions = () => {
     const fetchDoctor = async () => {
       if (!user) return;
 
-      const { data: doctorData, error } = await supabase
-        .from('doctors')
-        .select('id, clinic_name, clinic_address, qualification, registration_no, specialization')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (error) {
+      try {
+        const response = await doctorApi.getMyProfile();
+        if (response.success && response.data) {
+          const doctor = response.data.doctor;
+          setDoctorId(doctor.id);
+          setDoctorInfo({
+            id: doctor.id,
+            name: doctor.name,
+            clinic_name: doctor.clinicName || null,
+            clinic_address: doctor.clinicAddress || null,
+            qualification: doctor.qualification,
+            registration_no: doctor.registrationNo,
+            specialization: doctor.specialization,
+          });
+        }
+      } catch (error) {
         console.error('Error fetching doctor:', error);
-        return;
-      }
-
-      if (doctorData) {
-        // Fetch profile for name
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('name')
-          .eq('user_id', user.id)
-          .maybeSingle();
-
-        setDoctorId(doctorData.id);
-        setDoctorInfo({
-          ...doctorData,
-          name: profileData?.name || 'Doctor',
-        });
       }
     };
 
@@ -111,126 +115,85 @@ export const usePrescriptions = () => {
 
   // Fetch prescriptions
   const fetchPrescriptions = async () => {
-    if (!doctorId) {
+    if (!user) {
       setLoading(false);
       return;
     }
 
     setLoading(true);
-    const { data, error } = await supabase
-      .from('prescriptions')
-      .select(`
-        *,
-        patient:patients(id, patient_id, name, age, gender, mobile, address)
-      `)
-      .eq('doctor_id', doctorId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
+    try {
+      const response = await prescriptionApi.getPrescriptions();
+      if (response.success && response.data) {
+        setPrescriptions(response.data.map(mapPrescription));
+      } else {
+        toast.error('Failed to load prescriptions');
+      }
+    } catch (error: any) {
       console.error('Error fetching prescriptions:', error);
-      toast.error('Failed to load prescriptions');
-    } else {
-      const parsed = (data || []).map((rx) => ({
-        ...rx,
-        symptoms: parseJsonArray<PrescriptionSymptom>(rx.symptoms),
-        medicines: parseJsonArray<PrescriptionMedicine>(rx.medicines),
-      }));
-      setPrescriptions(parsed);
+      toast.error(error.response?.data?.message || 'Failed to load prescriptions');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
-    if (doctorId) {
+    if (user) {
       fetchPrescriptions();
     }
-  }, [doctorId]);
-
-  // Generate prescription number
-  const generatePrescriptionNo = async (): Promise<string> => {
-    const year = new Date().getFullYear();
-    const prefix = `RX-${year}-`;
-
-    const { data } = await supabase
-      .from('prescriptions')
-      .select('prescription_no')
-      .like('prescription_no', `${prefix}%`)
-      .order('prescription_no', { ascending: false })
-      .limit(1);
-
-    let nextNumber = 1;
-    if (data && data.length > 0) {
-      const lastNo = data[0].prescription_no;
-      const lastNumber = parseInt(lastNo.split('-').pop() || '0', 10);
-      nextNumber = lastNumber + 1;
-    }
-
-    return `${prefix}${String(nextNumber).padStart(4, '0')}`;
-  };
+  }, [user]);
 
   // Create prescription
   const createPrescription = async (formData: CreatePrescriptionData): Promise<Prescription | null> => {
-    if (!doctorId) {
-      toast.error('Doctor profile not found');
-      return null;
-    }
+    try {
+      const response = await prescriptionApi.createPrescription({
+        patientId: formData.patient_id,
+        symptoms: formData.symptoms.map((s) => ({
+          symptomId: s.id,
+          name: s.name,
+          severity: s.severity as 'low' | 'medium' | 'high',
+          duration: s.duration,
+          durationUnit: s.durationUnit as 'days' | 'weeks' | 'months',
+        })),
+        medicines: formData.medicines.map((m) => ({
+          medicineId: m.id,
+          name: m.name,
+          category: m.category,
+          dosage: m.dosage,
+          duration: m.duration,
+          instructions: m.instructions,
+        })),
+        diagnosis: formData.diagnosis,
+        advice: formData.advice,
+        followUpDate: formData.follow_up_date,
+      });
 
-    const prescriptionNo = await generatePrescriptionNo();
-
-    const { data, error } = await supabase
-      .from('prescriptions')
-      .insert({
-        prescription_no: prescriptionNo,
-        patient_id: formData.patient_id,
-        doctor_id: doctorId,
-        symptoms: formData.symptoms as unknown as Json,
-        medicines: formData.medicines as unknown as Json,
-        diagnosis: formData.diagnosis || null,
-        advice: formData.advice || null,
-        follow_up_date: formData.follow_up_date || null,
-      })
-      .select(`
-        *,
-        patient:patients(id, patient_id, name, age, gender, mobile, address)
-      `)
-      .single();
-
-    if (error) {
+      if (response.success && response.data) {
+        toast.success(`Prescription ${response.data.prescriptionNo} created successfully`);
+        await fetchPrescriptions();
+        return mapPrescription(response.data);
+      } else {
+        toast.error(response.message || 'Failed to create prescription');
+        return null;
+      }
+    } catch (error: any) {
       console.error('Error creating prescription:', error);
-      toast.error('Failed to create prescription');
+      toast.error(error.response?.data?.message || 'Failed to create prescription');
       return null;
     }
-
-    toast.success(`Prescription ${prescriptionNo} created successfully`);
-    await fetchPrescriptions();
-    
-    return {
-      ...data,
-      symptoms: parseJsonArray<PrescriptionSymptom>(data.symptoms),
-      medicines: parseJsonArray<PrescriptionMedicine>(data.medicines),
-    };
   };
 
   // Get prescription by ID
   const getPrescription = async (id: string): Promise<Prescription | null> => {
-    const { data, error } = await supabase
-      .from('prescriptions')
-      .select(`
-        *,
-        patient:patients(id, patient_id, name, age, gender, mobile, address)
-      `)
-      .eq('id', id)
-      .maybeSingle();
-
-    if (error || !data) {
+    try {
+      const response = await prescriptionApi.getPrescription(id);
+      if (response.success && response.data) {
+        return mapPrescription(response.data);
+      }
+      return null;
+    } catch (error: any) {
+      console.error('Error fetching prescription:', error);
       return null;
     }
-
-    return {
-      ...data,
-      symptoms: parseJsonArray<PrescriptionSymptom>(data.symptoms),
-      medicines: parseJsonArray<PrescriptionMedicine>(data.medicines),
-    };
   };
 
   return {

@@ -24,6 +24,7 @@ import Landing from "./pages/Landing";
 import Appointments from "./pages/Appointments";
 import BookAppointment from "./pages/BookAppointment";
 import Symptoms from "./pages/Symptoms";
+import StaffManagement from "./pages/StaffManagement";
 
 const queryClient = new QueryClient();
 
@@ -32,20 +33,18 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter
+        future={{
+          v7_startTransition: true,
+          v7_relativeSplatPath: true,
+        }}
+      >
         <AuthProvider>
           <Routes>
+            <Route path="/" element={<Landing />} />
             <Route path="/landing" element={<Landing />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/book" element={<BookAppointment />} />
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
             <Route
               path="/patients"
               element={
@@ -143,6 +142,14 @@ const App = () => (
               }
             />
             <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute allowedRoles={['doctor', 'staff']}>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/saas-admin"
               element={
                 <ProtectedRoute allowedRoles={['super_admin']}>
@@ -155,6 +162,14 @@ const App = () => (
               element={
                 <ProtectedRoute allowedRoles={['super_admin', 'doctor', 'staff']}>
                   <Appointments />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/staff-management"
+              element={
+                <ProtectedRoute allowedRoles={['doctor']}>
+                  <StaffManagement />
                 </ProtectedRoute>
               }
             />

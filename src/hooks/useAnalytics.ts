@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { useDoctor } from './useDoctor';
-import { format, subMonths, startOfMonth, endOfMonth, parseISO, startOfWeek, endOfWeek, eachDayOfInterval, getDay } from 'date-fns';
+import { format, subMonths, startOfMonth, endOfMonth, parseISO, startOfWeek, endOfWeek, getDay } from 'date-fns';
+import { analyticsApi } from '@/lib/api/analytics.api';
 
 interface MonthlyData {
   month: string;
@@ -58,125 +58,87 @@ export function useAnalytics() {
       const thisMonthStart = startOfMonth(now).toISOString();
       const thisMonthEnd = endOfMonth(now).toISOString();
 
-      // Fetch all data in parallel
-      const [
-        patientsResult,
-        prescriptionsResult,
-        thisMonthPatientsResult,
-        thisMonthPrescriptionsResult,
-      ] = await Promise.all([
-        supabase
-          .from('patients')
-          .select('id, created_at, visit_date')
-          .eq('doctor_id', doctorId),
-        supabase
-          .from('prescriptions')
-          .select('id, created_at, symptoms, medicines')
-          .eq('doctor_id', doctorId),
-        supabase
-          .from('patients')
-          .select('id', { count: 'exact', head: true })
-          .eq('doctor_id', doctorId)
-          .gte('created_at', thisMonthStart)
-          .lte('created_at', thisMonthEnd),
-        supabase
-          .from('prescriptions')
-          .select('id', { count: 'exact', head: true })
-          .eq('doctor_id', doctorId)
-          .gte('created_at', thisMonthStart)
-          .lte('created_at', thisMonthEnd),
+      // Fetch analytics data from backend
+      const [patientAnalytics, prescriptionAnalytics] = await Promise.all([
+        analyticsApi.getPatientAnalytics(),
+        analyticsApi.getPrescriptionAnalytics(),
       ]);
 
-      const patients = patientsResult.data || [];
-      const prescriptions = prescriptionsResult.data || [];
+      // For now, we'll use simplified data structure
+      // In a real scenario, you might need to fetch patient/prescription lists separately
+      // or enhance the backend analytics endpoints
+      const totalPatients = patientAnalytics.success ? patientAnalytics.data.totalPatients : 0;
+      const thisMonthPatients = patientAnalytics.success ? patientAnalytics.data.newPatients : 0;
+      const totalPrescriptions = prescriptionAnalytics.success ? prescriptionAnalytics.data.totalPrescriptions : 0;
+      const thisMonthPrescriptions = prescriptionAnalytics.success 
+        ? prescriptionAnalytics.data.monthlyTrend
+            .filter((m) => m._id.year === now.getFullYear() && m._id.month === now.getMonth() + 1)
+            .reduce((sum, m) => sum + m.count, 0)
+        : 0;
 
-      // Calculate monthly trend (last 12 months)
+      // Use backend analytics data
+      const topMedicines = prescriptionAnalytics.success 
+        ? prescriptionAnalytics.data.topMedicines.map((m) => ({ name: m._id, count: m.count }))
+        : [];
+
+      // Calculate monthly trend from backend data
       const monthlyTrend: MonthlyData[] = [];
-      for (let i = 11; i >= 0; i--) {
-        const monthDate = subMonths(now, i);
-        const monthStart = startOfMonth(monthDate);
-        const monthEnd = endOfMonth(monthDate);
-        const monthLabel = format(monthDate, 'MMM');
+      if (prescriptionAnalytics.success) {
+        const prescriptionTrend = prescriptionAnalytics.data.monthlyTrend;
+        for (let i = 11; i >= 0; i--) {
+          const monthDate = subMonths(now, i);
+          const monthLabel = format(monthDate, 'MMM');
+          const year = monthDate.getFullYear();
+          const month = monthDate.getMonth() + 1;
 
-        const monthPatients = patients.filter((p) => {
-          const date = parseISO(p.created_at);
-          return date >= monthStart && date <= monthEnd;
-        }).length;
+          const monthData = prescriptionTrend.find(
+            (m) => m._id.year === year && m._id.month === month
+          );
 
-        const monthPrescriptions = prescriptions.filter((p) => {
-          const date = parseISO(p.created_at);
-          return date >= monthStart && date <= monthEnd;
-        }).length;
-
-        monthlyTrend.push({
-          month: monthLabel,
-          patients: monthPatients,
-          prescriptions: monthPrescriptions,
-        });
+          monthlyTrend.push({
+            month: monthLabel,
+            patients: 0, // Backend doesn't provide patient trend yet
+            prescriptions: monthData?.count || 0,
+          });
+        }
+      } else {
+        // Fallback: empty trend
+        for (let i = 11; i >= 0; i--) {
+          const monthDate = subMonths(now, i);
+          monthlyTrend.push({
+            month: format(monthDate, 'MMM'),
+            patients: 0,
+            prescriptions: 0,
+          });
+        }
       }
 
-      // Calculate weekly overview (current week)
+      // Weekly overview - simplified (can be enhanced with backend data)
       const weekStart = startOfWeek(now, { weekStartsOn: 1 });
       const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
       const daysOfWeek = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
       
-      const weeklyOverview: WeeklyData[] = daysOfWeek.map((day, index) => {
-        const dayPatients = patients.filter((p) => {
-          const date = parseISO(p.visit_date);
-          const dayOfWeek = getDay(date);
-          // Convert Sunday (0) to 6, and shift others down by 1
-          const adjustedDay = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-          return date >= weekStart && date <= weekEnd && adjustedDay === index;
-        }).length;
+      const weeklyOverview: WeeklyData[] = daysOfWeek.map((day) => ({
+        day,
+        patients: 0, // Backend doesn't provide daily patient data yet
+      }));
 
-        return { day, patients: dayPatients };
-      });
-
-      // Calculate symptom categories from prescriptions
-      const categoryCount: Record<string, number> = {};
-      prescriptions.forEach((p) => {
-        const symptoms = p.symptoms as any[];
-        if (Array.isArray(symptoms)) {
-          symptoms.forEach((symptom: any) => {
-            if (symptom.category) {
-              categoryCount[symptom.category] = (categoryCount[symptom.category] || 0) + 1;
-            }
-          });
-        }
-      });
-
-      const symptomCategories: CategoryData[] = Object.entries(categoryCount)
-        .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 6);
-
-      // Calculate top medicines from prescriptions
-      const medicineCount: Record<string, number> = {};
-      prescriptions.forEach((p) => {
-        const medicines = p.medicines as any[];
-        if (Array.isArray(medicines)) {
-          medicines.forEach((medicine: any) => {
-            if (medicine.name) {
-              medicineCount[medicine.name] = (medicineCount[medicine.name] || 0) + 1;
-            }
-          });
-        }
-      });
-
-      const topMedicines: MedicineUsage[] = Object.entries(medicineCount)
-        .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 5);
+      // Symptom categories - use top symptoms from backend
+      const symptomCategories: CategoryData[] = prescriptionAnalytics.success
+        ? prescriptionAnalytics.data.topSymptoms
+            .slice(0, 6)
+            .map((s) => ({ name: s._id, count: s.count }))
+        : [];
 
       return {
         monthlyTrend,
         weeklyOverview,
         symptomCategories,
         topMedicines,
-        totalPatients: patients.length,
-        thisMonthPatients: thisMonthPatientsResult.count ?? 0,
-        totalPrescriptions: prescriptions.length,
-        thisMonthPrescriptions: thisMonthPrescriptionsResult.count ?? 0,
+        totalPatients,
+        thisMonthPatients,
+        totalPrescriptions,
+        thisMonthPrescriptions,
       };
     },
     enabled: !!doctorId,

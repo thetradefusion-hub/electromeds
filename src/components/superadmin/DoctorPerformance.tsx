@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { adminApi } from '@/lib/api/admin.api';
+import { patientApi } from '@/lib/api/patient.api';
+import { prescriptionApi } from '@/lib/api/prescription.api';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
@@ -22,64 +24,56 @@ const DoctorPerformance = () => {
   const { data: doctors, isLoading } = useQuery({
     queryKey: ['admin-doctor-performance'],
     queryFn: async () => {
-      // Fetch all doctors with profiles
-      const { data: doctorsData, error: doctorsError } = await supabase
-        .from('doctors')
-        .select('id, user_id, specialization, created_at')
-        .order('created_at', { ascending: false });
+      try {
+        // Fetch all doctors, patients, and prescriptions
+        const [doctorsRes, patientsRes, prescriptionsRes] = await Promise.all([
+          adminApi.getAllDoctors(),
+          patientApi.getPatients(),
+          prescriptionApi.getPrescriptions(),
+        ]);
 
-      if (doctorsError) throw doctorsError;
+        if (!doctorsRes.success || !patientsRes.success || !prescriptionsRes.success) {
+          throw new Error('Failed to fetch data');
+        }
 
-      // Fetch all patients
-      const { data: patientsData } = await supabase
-        .from('patients')
-        .select('doctor_id');
+        const doctorsData = doctorsRes.data || [];
+        const patientsData = patientsRes.data || [];
+        const prescriptionsData = prescriptionsRes.data || [];
 
-      // Fetch all prescriptions
-      const { data: prescriptionsData } = await supabase
-        .from('prescriptions')
-        .select('doctor_id, created_at');
+        const last7Days = subDays(startOfDay(new Date()), 7);
 
-      // Get profiles
-      const userIds = doctorsData?.map(d => d.user_id) || [];
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, name, email')
-        .in('user_id', userIds);
+        // Calculate stats for each doctor
+        const performanceData: DoctorPerformance[] = doctorsData.map(doctor => {
+          const doctorPatients = patientsData.filter(p => p.doctorId === doctor.id) || [];
+          const doctorPrescriptions = prescriptionsData.filter(p => p.doctorId === doctor.id) || [];
+          const thisWeekRx = doctorPrescriptions.filter(p => new Date(p.createdAt) >= last7Days);
+          
+          const lastRx = doctorPrescriptions.length > 0 
+            ? doctorPrescriptions.reduce((latest, rx) => 
+                new Date(rx.createdAt) > new Date(latest.createdAt) ? rx : latest
+              )
+            : null;
 
-      const profileMap = new Map(profiles?.map(p => [p.user_id, p]) || []);
+          return {
+            id: doctor.id,
+            name: doctor.name,
+            email: doctor.email,
+            specialization: doctor.specialization,
+            totalPatients: doctorPatients.length,
+            totalPrescriptions: doctorPrescriptions.length,
+            thisWeekPrescriptions: thisWeekRx.length,
+            lastActive: lastRx?.createdAt || null,
+          };
+        });
 
-      const last7Days = subDays(startOfDay(new Date()), 7);
+        // Sort by total prescriptions
+        performanceData.sort((a, b) => b.totalPrescriptions - a.totalPrescriptions);
 
-      // Calculate stats for each doctor
-      const performanceData: DoctorPerformance[] = (doctorsData || []).map(doctor => {
-        const profile = profileMap.get(doctor.user_id);
-        const doctorPatients = patientsData?.filter(p => p.doctor_id === doctor.id) || [];
-        const doctorPrescriptions = prescriptionsData?.filter(p => p.doctor_id === doctor.id) || [];
-        const thisWeekRx = doctorPrescriptions.filter(p => new Date(p.created_at) >= last7Days);
-        
-        const lastRx = doctorPrescriptions.length > 0 
-          ? doctorPrescriptions.reduce((latest, rx) => 
-              new Date(rx.created_at) > new Date(latest.created_at) ? rx : latest
-            )
-          : null;
-
-        return {
-          id: doctor.id,
-          name: profile?.name || 'Unknown',
-          email: profile?.email || '',
-          specialization: doctor.specialization,
-          totalPatients: doctorPatients.length,
-          totalPrescriptions: doctorPrescriptions.length,
-          thisWeekPrescriptions: thisWeekRx.length,
-          lastActive: lastRx?.created_at || null,
-        };
-      });
-
-      // Sort by total prescriptions
-      performanceData.sort((a, b) => b.totalPrescriptions - a.totalPrescriptions);
-
-      return performanceData;
+        return performanceData;
+      } catch (error) {
+        console.error('Error fetching doctor performance:', error);
+        return [];
+      }
     },
   });
 

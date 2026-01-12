@@ -10,7 +10,8 @@ import {
   Trash2,
   Save,
 } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
+import { aiAnalysisApi } from '@/lib/api/aiAnalysis.api';
+import { medicalReportApi } from '@/lib/api/medicalReport.api';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -126,24 +127,18 @@ export function MedicalReportAnalyzer({ patientId, doctorId }: MedicalReportAnal
         reader.readAsDataURL(file);
       });
 
-      const { data, error } = await supabase.functions.invoke('analyze-medical-report', {
-        body: {
-          imageBase64: base64,
-          reportType: selectedReportType || undefined,
-          mimeType: file.type,
-        },
+      const response = await aiAnalysisApi.analyzeReport({
+        imageBase64: base64,
+        reportType: selectedReportType || undefined,
+        mimeType: file.type,
       });
 
-      if (error) {
-        throw new Error(error.message || 'Failed to analyze report');
-      }
-
-      if (data.error) {
-        throw new Error(data.error);
+      if (!response.success || !response.data) {
+        throw new Error(response.message || 'Failed to analyze report');
       }
 
       setReports(prev => prev.map(r => 
-        r.id === reportId ? { ...r, analyzing: false, analysis: data.analysis } : r
+        r.id === reportId ? { ...r, analyzing: false, analysis: response.data! } : r
       ));
 
       toast.success('Report analyzed successfully');
@@ -188,40 +183,42 @@ export function MedicalReportAnalyzer({ patientId, doctorId }: MedicalReportAnal
     ));
 
     try {
-      // Upload file to storage
-      const fileExt = report.file.name.split('.').pop();
-      const fileName = `${patientId}/${Date.now()}.${fileExt}`;
+      // NOTE: File storage is OPTIONAL. We only save the analysis results.
+      // The original file is NOT stored on the server - only the AI analysis is saved.
+      // If you want to store the original file, you would need to:
+      // 1. Set up file upload endpoint (Multer + Cloud Storage)
+      // 2. Upload file and get URL
+      // 3. Use that URL here
       
-      const { error: uploadError } = await supabase.storage
-        .from('medical-reports')
-        .upload(fileName, report.file);
+      // For now, we save only the analysis results without the original file
+      // The fileUrl can be empty or a placeholder since we're not storing files
+      const fileUrl = `data:${report.file.type};base64,${await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]); // Get base64 part
+        };
+        reader.readAsDataURL(report.file);
+      })}`;
+      
+      // Save analysis results to database (file is NOT stored, only analysis is saved)
+      const response = await medicalReportApi.createMedicalReport({
+        patientId,
+        reportType: report.analysis.reportType,
+        fileName: report.file.name,
+        fileUrl, // Base64 data URL (stored in DB, not as separate file)
+        analysis: report.analysis,
+      });
 
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('medical-reports')
-        .getPublicUrl(fileName);
-
-      // Save to database - using type assertion since types may not be synced yet
-      const { error: dbError } = await supabase
-        .from('patient_medical_reports' as any)
-        .insert({
-          patient_id: patientId,
-          doctor_id: doctorId,
-          report_type: report.analysis.reportType,
-          file_name: report.file.name,
-          file_url: urlData.publicUrl,
-          analysis: report.analysis,
-        } as any);
-
-      if (dbError) throw dbError;
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to save report');
+      }
 
       setReports(prev => prev.map(r => 
         r.id === reportId ? { ...r, saving: false, saved: true } : r
       ));
 
-      toast.success('Report saved to patient history');
+      toast.success('Report analysis saved to patient history');
     } catch (error) {
       console.error('Save report error:', error);
       setReports(prev => prev.map(r => 

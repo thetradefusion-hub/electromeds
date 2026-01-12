@@ -1,5 +1,6 @@
-import { UserPlus, Stethoscope, FileText, Pill } from 'lucide-react';
+import { UserPlus, Stethoscope, FileText, Pill, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { cn } from '@/lib/utils';
 
 const actions = [
   {
@@ -8,6 +9,7 @@ const actions = [
     description: 'Register new patient',
     path: '/patients/new',
     variant: 'primary' as const,
+    gradient: 'from-blue-500 to-cyan-500',
   },
   {
     icon: Stethoscope,
@@ -15,6 +17,7 @@ const actions = [
     description: 'Start consultation',
     path: '/consultation',
     variant: 'accent' as const,
+    gradient: 'from-emerald-500 to-teal-500',
   },
   {
     icon: FileText,
@@ -22,6 +25,7 @@ const actions = [
     description: 'Recent prescriptions',
     path: '/prescriptions',
     variant: 'default' as const,
+    gradient: 'from-slate-500 to-slate-600',
   },
   {
     icon: Pill,
@@ -29,15 +33,21 @@ const actions = [
     description: 'Browse medicines',
     path: '/medicines',
     variant: 'default' as const,
+    gradient: 'from-purple-500 to-pink-500',
   },
 ];
 
 export function QuickActions() {
   return (
-    <div className="medical-card">
-      <div className="mb-4">
-        <h3 className="text-lg font-semibold text-foreground">Quick Actions</h3>
-        <p className="text-sm text-muted-foreground">Common tasks</p>
+    <div className="medical-card border-border/50 shadow-sm hover:shadow-md transition-shadow">
+      <div className="mb-4 sm:mb-5 pb-3 border-b border-border/50">
+        <h3 className="text-lg sm:text-xl font-semibold text-foreground flex items-center gap-2">
+          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+            <Zap className="h-4 w-4 text-white" />
+          </div>
+          Quick Actions
+        </h3>
+        <p className="text-xs sm:text-sm text-muted-foreground mt-1">Common tasks</p>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -45,27 +55,33 @@ export function QuickActions() {
           <Link
             key={action.path}
             to={action.path}
-            className="group flex flex-col items-center justify-center gap-2 rounded-xl border border-border bg-card p-4 text-center transition-all duration-200 hover:border-primary/30 hover:shadow-md animate-fade-in"
+            className={cn(
+              "group relative overflow-hidden flex flex-col items-center justify-center gap-2 rounded-xl border p-4 text-center transition-all duration-300 hover:shadow-lg animate-fade-in",
+              action.variant === 'primary' 
+                ? 'border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50/50 to-cyan-50/30 dark:from-blue-950/20 dark:to-cyan-950/10'
+                : action.variant === 'accent'
+                ? 'border-emerald-200 dark:border-emerald-800 bg-gradient-to-br from-emerald-50/50 to-teal-50/30 dark:from-emerald-950/20 dark:to-teal-950/10'
+                : 'border-border bg-card hover:border-primary/30'
+            )}
             style={{ animationDelay: `${index * 50}ms` }}
           >
+            {/* Decorative blur effect */}
+            <div className={cn(
+              "absolute top-0 right-0 w-16 h-16 rounded-full blur-xl opacity-0 group-hover:opacity-20 transition-opacity -translate-y-1/2 translate-x-1/2",
+              `bg-gradient-to-br ${action.gradient}`
+            )} />
+            
             <div
-              className={`flex h-12 w-12 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-110 ${
-                action.variant === 'primary'
-                  ? 'gradient-primary'
-                  : action.variant === 'accent'
-                  ? 'gradient-accent'
-                  : 'bg-secondary'
-              }`}
+              className={cn(
+                "relative z-10 flex h-12 w-12 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110 shadow-lg",
+                `bg-gradient-to-br ${action.gradient}`
+              )}
             >
-              <action.icon
-                className={`h-6 w-6 ${
-                  action.variant === 'default' ? 'text-muted-foreground' : 'text-white'
-                }`}
-              />
+              <action.icon className="h-6 w-6 text-white" />
             </div>
-            <div>
-              <p className="text-sm font-medium text-foreground">{action.label}</p>
-              <p className="text-xs text-muted-foreground">{action.description}</p>
+            <div className="relative z-10">
+              <p className="text-xs sm:text-sm font-semibold text-foreground">{action.label}</p>
+              <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5">{action.description}</p>
             </div>
           </Link>
         ))}

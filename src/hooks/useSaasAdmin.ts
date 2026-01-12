@@ -1,5 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { adminApi } from '@/lib/api/admin.api';
+import { subscriptionApi } from '@/lib/api/subscription.api';
+import { supportTicketApi, SupportTicket } from '@/lib/api/supportTicket.api';
 
 export interface SubscriptionPlan {
   id: string;
@@ -71,37 +73,46 @@ export interface SupportTicket {
 }
 
 export function useSaasAdmin() {
+  const queryClient = useQueryClient();
+
   const subscriptionsQuery = useQuery({
     queryKey: ['admin-subscriptions'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('subscriptions')
-        .select(`
-          *,
-          plan:subscription_plans(*),
-          doctor:doctors(
-            id,
-            clinic_name,
-            user_id
-          )
-        `)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      // Fetch profiles for each doctor
-      const doctorUserIds = data?.map(s => s.doctor?.user_id).filter(Boolean) || [];
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('user_id, name, email, phone')
-        .in('user_id', doctorUserIds);
-
-      return data?.map(sub => ({
-        ...sub,
-        doctor: sub.doctor ? {
-          ...sub.doctor,
-          profile: profiles?.find(p => p.user_id === sub.doctor?.user_id)
-        } : null
+      const response = await adminApi.getAllSubscriptions();
+      if (!response.success) throw new Error(response.message || 'Failed to fetch subscriptions');
+      
+      // Map backend format to frontend format
+      return (response.data || []).map((sub: any) => ({
+        id: sub._id,
+        doctor_id: typeof sub.doctorId === 'string' ? sub.doctorId : sub.doctorId?._id,
+        plan_id: typeof sub.planId === 'string' ? sub.planId : sub.planId?._id,
+        status: sub.status,
+        billing_cycle: sub.billingCycle,
+        current_period_start: sub.currentPeriodStart,
+        current_period_end: sub.currentPeriodEnd,
+        trial_ends_at: sub.trialEndsAt || null,
+        cancelled_at: sub.cancelledAt || null,
+        created_at: sub.createdAt,
+        plan: typeof sub.planId === 'object' ? {
+          id: sub.planId._id,
+          name: sub.planId.name,
+          price_monthly: sub.planId.priceMonthly,
+          price_yearly: sub.planId.priceYearly || null,
+          features: sub.planId.features || [],
+          patient_limit: sub.planId.patientLimit || null,
+          doctor_limit: sub.planId.doctorLimit,
+          ai_analysis_quota: sub.planId.aiAnalysisQuota,
+        } : null,
+        doctor: typeof sub.doctorId === 'object' ? {
+          id: sub.doctorId._id,
+          clinic_name: sub.doctorId.clinicName || null,
+          user_id: sub.doctorId.userId,
+          profile: {
+            name: sub.doctorId.name,
+            email: sub.doctorId.email,
+            phone: sub.doctorId.phone,
+          },
+        } : null,
       })) as Subscription[];
     },
   });
@@ -109,118 +120,102 @@ export function useSaasAdmin() {
   const paymentsQuery = useQuery({
     queryKey: ['admin-payments'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('payments')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(100);
-
-      if (error) throw error;
-      return data as Payment[];
+      const response = await adminApi.getAllPayments();
+      if (!response.success) throw new Error(response.message || 'Failed to fetch payments');
+      
+      // Map backend format to frontend format
+      return (response.data || []).map((p: any) => ({
+        id: p._id,
+        subscription_id: typeof p.subscriptionId === 'string' ? p.subscriptionId : p.subscriptionId?._id,
+        doctor_id: typeof p.doctorId === 'string' ? p.doctorId : p.doctorId?._id,
+        amount: p.amount,
+        currency: p.currency,
+        status: p.status,
+        payment_method: p.paymentMethod || null,
+        transaction_id: p.transactionId || null,
+        created_at: p.createdAt,
+      })) as Payment[];
     },
   });
 
   const ticketsQuery = useQuery({
     queryKey: ['admin-tickets'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('support_tickets')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      // Fetch doctor info for tickets
-      const doctorIds = data?.map(t => t.doctor_id).filter(Boolean) || [];
-      if (doctorIds.length > 0) {
-        const { data: doctors } = await supabase
-          .from('doctors')
-          .select('id, clinic_name, user_id')
-          .in('id', doctorIds);
-
-        const userIds = doctors?.map(d => d.user_id).filter(Boolean) || [];
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('user_id, name, email')
-          .in('user_id', userIds);
-
-        return data?.map(ticket => ({
-          ...ticket,
-          doctor: doctors?.find(d => d.id === ticket.doctor_id) ? {
-            ...doctors?.find(d => d.id === ticket.doctor_id),
-            profile: profiles?.find(p => p.user_id === doctors?.find(d => d.id === ticket.doctor_id)?.user_id)
-          } : null
-        })) as SupportTicket[];
-      }
-
-      return data as SupportTicket[];
+      const response = await supportTicketApi.getSupportTickets();
+      if (!response.success) throw new Error(response.message || 'Failed to fetch tickets');
+      
+      // Map backend format to frontend format
+      return (response.data || []).map((t: any) => ({
+        id: t._id,
+        doctor_id: typeof t.doctorId === 'string' ? t.doctorId : t.doctorId?._id,
+        subject: t.subject,
+        description: t.description,
+        status: t.status,
+        priority: t.priority,
+        category: t.category,
+        assigned_to: typeof t.assignedTo === 'string' ? t.assignedTo : t.assignedTo?._id || null,
+        resolved_at: t.resolvedAt || null,
+        created_at: t.createdAt,
+        updated_at: t.updatedAt,
+        doctor: typeof t.doctorId === 'object' ? {
+          id: t.doctorId._id,
+          clinic_name: t.doctorId.clinicName || null,
+          profile: {
+            name: t.doctorId.name,
+            email: t.doctorId.email,
+          },
+        } : null,
+      })) as SupportTicket[];
     },
   });
 
   const plansQuery = useQuery({
     queryKey: ['subscription-plans'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('subscription_plans')
-        .select('*')
-        .order('price_monthly', { ascending: true });
-
-      if (error) throw error;
-      return data as SubscriptionPlan[];
+      const response = await subscriptionApi.getSubscriptionPlans();
+      if (!response.success) throw new Error(response.message || 'Failed to fetch plans');
+      
+      // Map backend format to frontend format
+      return (response.data || []).map((p: any) => ({
+        id: p._id,
+        name: p.name,
+        price_monthly: p.priceMonthly,
+        price_yearly: p.priceYearly || null,
+        features: p.features || [],
+        patient_limit: p.patientLimit || null,
+        doctor_limit: p.doctorLimit,
+        ai_analysis_quota: p.aiAnalysisQuota,
+        is_active: p.isActive,
+      })) as SubscriptionPlan[];
     },
   });
 
   const revenueStats = useQuery({
     queryKey: ['admin-revenue-stats'],
     queryFn: async () => {
-      const { data: payments, error } = await supabase
-        .from('payments')
-        .select('amount, status, created_at')
-        .eq('status', 'completed');
-
-      if (error) throw error;
-
-      const now = new Date();
-      const thisMonth = payments?.filter(p => {
-        const date = new Date(p.created_at);
-        return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-      }) || [];
-
-      const lastMonth = payments?.filter(p => {
-        const date = new Date(p.created_at);
-        const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1);
-        return date.getMonth() === lastMonthDate.getMonth() && date.getFullYear() === lastMonthDate.getFullYear();
-      }) || [];
-
-      const totalRevenue = payments?.reduce((sum, p) => sum + p.amount, 0) || 0;
-      const thisMonthRevenue = thisMonth.reduce((sum, p) => sum + p.amount, 0);
-      const lastMonthRevenue = lastMonth.reduce((sum, p) => sum + p.amount, 0);
-      const growthRate = lastMonthRevenue > 0 
-        ? ((thisMonthRevenue - lastMonthRevenue) / lastMonthRevenue * 100).toFixed(1)
-        : 0;
-
+      const response = await adminApi.getPaymentStats();
+      if (!response.success) throw new Error(response.message || 'Failed to fetch revenue stats');
+      
       return {
-        totalRevenue,
-        thisMonthRevenue,
-        lastMonthRevenue,
-        growthRate,
-        totalTransactions: payments?.length || 0
+        totalRevenue: response.data.totalRevenue,
+        thisMonthRevenue: response.data.thisMonthRevenue,
+        lastMonthRevenue: response.data.lastMonthRevenue,
+        growthRate: response.data.growthRate.toString(),
+        totalTransactions: response.data.totalTransactions,
       };
     },
   });
 
-  const updateTicketStatus = async (ticketId: string, status: SupportTicket['status']) => {
-    const { error } = await supabase
-      .from('support_tickets')
-      .update({ 
-        status, 
-        resolved_at: status === 'resolved' ? new Date().toISOString() : null 
-      })
-      .eq('id', ticketId);
-
-    if (error) throw error;
-    ticketsQuery.refetch();
-  };
+  const updateTicketStatus = useMutation({
+    mutationFn: async ({ ticketId, status }: { ticketId: string; status: SupportTicket['status'] }) => {
+      const response = await supportTicketApi.updateSupportTicket(ticketId, { status });
+      if (!response.success) throw new Error(response.message || 'Failed to update ticket');
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-tickets'] });
+    },
+  });
 
   return {
     subscriptions: subscriptionsQuery.data || [],
@@ -228,8 +223,10 @@ export function useSaasAdmin() {
     tickets: ticketsQuery.data || [],
     plans: plansQuery.data || [],
     revenueStats: revenueStats.data,
-    isLoading: subscriptionsQuery.isLoading || paymentsQuery.isLoading || ticketsQuery.isLoading,
-    updateTicketStatus,
+    isLoading: subscriptionsQuery.isLoading || paymentsQuery.isLoading || ticketsQuery.isLoading || plansQuery.isLoading || revenueStats.isLoading,
+    updateTicketStatus: (ticketId: string, status: SupportTicket['status']) => {
+      updateTicketStatus.mutate({ ticketId, status });
+    },
     refetchTickets: ticketsQuery.refetch,
   };
 }

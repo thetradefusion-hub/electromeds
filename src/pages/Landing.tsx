@@ -51,6 +51,62 @@ const Landing = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Intersection Observer for scroll animations
+  useEffect(() => {
+    const observerOptions = {
+      threshold: 0.1,
+      rootMargin: '0px 0px -100px 0px',
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('animate-in');
+        }
+      });
+    }, observerOptions);
+
+    // Observe all elements with scroll-animate classes
+    const animatedElements = document.querySelectorAll(
+      '.scroll-animate, .scroll-animate-left, .scroll-animate-right, .scroll-animate-scale'
+    );
+    
+    animatedElements.forEach((el) => observer.observe(el));
+
+    return () => {
+      animatedElements.forEach((el) => observer.unobserve(el));
+    };
+  }, []);
+
+  // Smooth scroll handler for anchor links
+  useEffect(() => {
+    const handleAnchorClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const anchor = target.closest('a[href^="#"]');
+      
+      if (anchor) {
+        const href = anchor.getAttribute('href');
+        if (href && href !== '#') {
+          e.preventDefault();
+          const targetElement = document.querySelector(href);
+          if (targetElement) {
+            const offset = 80; // Account for fixed navbar
+            const elementPosition = targetElement.getBoundingClientRect().top;
+            const offsetPosition = elementPosition + window.pageYOffset - offset;
+
+            window.scrollTo({
+              top: offsetPosition,
+              behavior: 'smooth',
+            });
+          }
+        }
+      }
+    };
+
+    document.addEventListener('click', handleAnchorClick);
+    return () => document.removeEventListener('click', handleAnchorClick);
+  }, []);
+
   const features = [
     {
       icon: Users,
@@ -267,25 +323,47 @@ const Landing = () => {
 
         {/* Mobile Navigation */}
         {mobileMenuOpen && (
-          <div className="lg:hidden absolute top-full left-0 right-0 bg-background/98 backdrop-blur-xl border-b border-border p-6 space-y-4 animate-slide-up shadow-xl">
-            <a href="#features" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-between py-3 text-lg font-semibold text-foreground hover:text-primary transition-colors">
-              Features <ChevronRight className="h-5 w-5 text-muted-foreground" />
+          <div className="lg:hidden absolute top-full left-0 right-0 bg-white dark:bg-slate-950 border-b-2 border-primary/20 shadow-2xl p-6 space-y-3 animate-slide-up">
+            <a 
+              href="#features" 
+              onClick={() => setMobileMenuOpen(false)} 
+              className="flex items-center justify-between py-4 px-4 rounded-xl bg-secondary/50 hover:bg-secondary border border-transparent hover:border-primary/20 transition-all active:scale-[0.98]"
+            >
+              <span className="text-base font-semibold text-foreground">Features</span>
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </a>
-            <a href="#pricing" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-between py-3 text-lg font-semibold text-foreground hover:text-primary transition-colors">
-              Pricing <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            <a 
+              href="#pricing" 
+              onClick={() => setMobileMenuOpen(false)} 
+              className="flex items-center justify-between py-4 px-4 rounded-xl bg-secondary/50 hover:bg-secondary border border-transparent hover:border-primary/20 transition-all active:scale-[0.98]"
+            >
+              <span className="text-base font-semibold text-foreground">Pricing</span>
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </a>
-            <a href="#testimonials" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-between py-3 text-lg font-semibold text-foreground hover:text-primary transition-colors">
-              Reviews <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            <a 
+              href="#testimonials" 
+              onClick={() => setMobileMenuOpen(false)} 
+              className="flex items-center justify-between py-4 px-4 rounded-xl bg-secondary/50 hover:bg-secondary border border-transparent hover:border-primary/20 transition-all active:scale-[0.98]"
+            >
+              <span className="text-base font-semibold text-foreground">Reviews</span>
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </a>
-            <a href="#contact" onClick={() => setMobileMenuOpen(false)} className="flex items-center justify-between py-3 text-lg font-semibold text-foreground hover:text-primary transition-colors">
-              Contact <ChevronRight className="h-5 w-5 text-muted-foreground" />
+            <a 
+              href="#contact" 
+              onClick={() => setMobileMenuOpen(false)} 
+              className="flex items-center justify-between py-4 px-4 rounded-xl bg-secondary/50 hover:bg-secondary border border-transparent hover:border-primary/20 transition-all active:scale-[0.98]"
+            >
+              <span className="text-base font-semibold text-foreground">Contact</span>
+              <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </a>
-            <div className="pt-6 space-y-3 border-t border-border">
+            <div className="pt-4 space-y-3 border-t-2 border-border">
               <Link to="/auth" className="block" onClick={() => setMobileMenuOpen(false)}>
-                <Button variant="outline" className="w-full rounded-xl h-14 text-base font-semibold">Login</Button>
+                <Button variant="outline" className="w-full rounded-xl h-14 text-base font-semibold border-2">
+                  Login
+                </Button>
               </Link>
               <Link to="/auth" className="block" onClick={() => setMobileMenuOpen(false)}>
-                <Button className="w-full rounded-xl h-14 text-base font-semibold gap-2 shadow-lg">
+                <Button className="w-full rounded-xl h-14 text-base font-semibold gap-2 shadow-lg shadow-primary/25">
                   Start Free Trial
                   <ArrowRight className="h-5 w-5" />
                 </Button>
@@ -297,12 +375,15 @@ const Landing = () => {
 
       {/* Hero Section */}
       <section className="relative pt-24 lg:pt-32 pb-16 lg:pb-24 overflow-hidden">
-        {/* Animated Background */}
+        {/* Enhanced Animated Background */}
         <div className="absolute inset-0">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/8 via-transparent to-accent/8" />
-          <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-primary/15 rounded-full blur-[100px] animate-pulse" />
-          <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-accent/15 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '1s' }} />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-to-r from-primary/5 to-accent/5 rounded-full blur-[150px]" />
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-accent/10" />
+          <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-primary/20 rounded-full blur-[120px] animate-pulse" />
+          <div className="absolute bottom-0 right-1/4 w-[700px] h-[700px] bg-accent/20 rounded-full blur-[140px] animate-pulse" style={{ animationDelay: '1s' }} />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[900px] bg-gradient-to-r from-primary/8 to-accent/8 rounded-full blur-[180px]" />
+          {/* Additional floating gradients */}
+          <div className="absolute top-20 right-10 w-[400px] h-[400px] bg-violet-500/10 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '2s' }} />
+          <div className="absolute bottom-20 left-10 w-[350px] h-[350px] bg-emerald-500/10 rounded-full blur-[90px] animate-pulse" style={{ animationDelay: '1.5s' }} />
         </div>
 
         {/* Floating Elements */}
@@ -318,75 +399,78 @@ const Landing = () => {
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
           <div className="text-center max-w-5xl mx-auto">
-            {/* Badge */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20 mb-6 lg:mb-8 animate-fade-in">
-              <Sparkles className="h-4 w-4 text-primary" />
-              <span className="text-sm font-semibold text-foreground">#1 Rated Clinic Management Software in India</span>
-              <Badge className="bg-primary/20 text-primary border-0 text-xs">NEW</Badge>
+            {/* Enhanced Badge */}
+            <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-primary/10 via-violet-500/10 to-accent/10 border border-primary/30 shadow-lg shadow-primary/10 mb-6 lg:mb-8 animate-fade-in hover:scale-105 transition-transform duration-300">
+              <div className="w-5 h-5 rounded-full bg-gradient-to-br from-primary to-violet-500 flex items-center justify-center">
+                <Sparkles className="h-3 w-3 text-white" />
+              </div>
+              <span className="text-sm font-bold text-foreground">#1 Rated Clinic Management Software in India</span>
+              <Badge className="bg-gradient-to-r from-primary to-violet-500 text-white border-0 text-xs font-bold shadow-md">NEW</Badge>
             </div>
             
-            {/* Headline */}
-            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold text-foreground leading-[1.1] mb-6 lg:mb-8 tracking-tight animate-slide-up">
-              Manage Your Clinic
-              <span className="block mt-2">
-                <span className="relative">
-                  <span className="bg-gradient-to-r from-primary via-violet-500 to-accent bg-clip-text text-transparent">
+            {/* Enhanced Headline */}
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-extrabold text-foreground leading-[1.1] mb-6 lg:mb-8 tracking-tight animate-slide-up">
+              <span className="block">Manage Your Clinic</span>
+              <span className="block mt-3 relative">
+                <span className="relative inline-block">
+                  <span className="bg-gradient-to-r from-primary via-violet-500 to-accent bg-clip-text text-transparent animate-gradient">
                     10x Faster
                   </span>
-                  <svg className="absolute -bottom-2 left-0 w-full h-3 text-primary/30" viewBox="0 0 200 12" preserveAspectRatio="none">
-                    <path d="M0,8 Q50,0 100,8 T200,8" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
+                  <svg className="absolute -bottom-4 left-0 w-full h-5 text-primary/50 animate-pulse" viewBox="0 0 200 20" preserveAspectRatio="none">
+                    <path d="M0,15 Q50,5 100,15 T200,15" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
                   </svg>
                 </span>
               </span>
+              <span className="block mt-4 text-xl sm:text-2xl lg:text-3xl text-muted-foreground font-medium">
+                with <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent font-semibold">AI-Powered Intelligence</span>
+              </span>
             </h1>
             
-            {/* Subheadline */}
-            <p className="text-lg sm:text-xl lg:text-2xl text-muted-foreground mb-8 lg:mb-10 max-w-3xl mx-auto leading-relaxed animate-slide-up" style={{ animationDelay: '100ms' }}>
+            {/* Enhanced Subheadline */}
+            <p className="text-base sm:text-lg lg:text-xl text-muted-foreground mb-8 lg:mb-12 max-w-3xl mx-auto leading-relaxed animate-slide-up" style={{ animationDelay: '100ms' }}>
               AI-powered patient management, smart prescriptions, and seamless appointments — 
               <span className="text-foreground font-semibold"> all in one beautiful platform.</span>
             </p>
 
-            {/* CTA Buttons */}
+            {/* Enhanced CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8 animate-slide-up" style={{ animationDelay: '200ms' }}>
               <Link to="/auth">
-                <Button size="lg" className="gap-3 text-base lg:text-lg px-8 h-14 lg:h-16 w-full sm:w-auto rounded-2xl shadow-xl shadow-primary/25 hover:shadow-2xl hover:shadow-primary/30 hover:scale-[1.02] transition-all">
-                  Start Free Trial
-                  <ArrowRight className="h-5 w-5" />
+                <Button size="lg" className="gap-3 text-base lg:text-lg px-10 h-16 lg:h-[72px] w-full sm:w-auto rounded-2xl shadow-2xl shadow-primary/30 hover:shadow-primary/40 hover:scale-[1.03] transition-all duration-300 bg-gradient-to-r from-primary to-violet-600 hover:from-primary/90 hover:to-violet-600/90 border-0">
+                  <span className="font-bold">Start Free Trial</span>
+                  <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
-              <Button size="lg" variant="outline" className="gap-3 text-base lg:text-lg px-8 h-14 lg:h-16 rounded-2xl border-2 hover:bg-secondary/50 transition-all group">
-                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                  <Play className="h-4 w-4 text-primary fill-primary" />
+              <Button size="lg" variant="outline" className="gap-3 text-base lg:text-lg px-10 h-16 lg:h-[72px] rounded-2xl border-2 hover:bg-secondary/80 hover:border-primary/30 transition-all group backdrop-blur-sm bg-background/50">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/20 to-violet-500/20 flex items-center justify-center group-hover:from-primary/30 group-hover:to-violet-500/30 transition-all group-hover:scale-110">
+                  <Play className="h-5 w-5 text-primary fill-primary" />
                 </div>
-                Watch Demo
+                <span className="font-semibold">Watch Demo</span>
               </Button>
             </div>
 
-            {/* Trust Indicators */}
-            <div className="flex flex-wrap items-center justify-center gap-3 text-sm text-muted-foreground animate-fade-in" style={{ animationDelay: '300ms' }}>
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-4 w-4 text-accent" />
-                No credit card
+            {/* Enhanced Trust Indicators */}
+            <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-sm sm:text-base text-muted-foreground animate-fade-in" style={{ animationDelay: '300ms' }}>
+              <span className="flex items-center gap-2 px-4 py-2 rounded-full bg-accent/5 border border-accent/20">
+                <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-accent" />
+                <span className="font-medium">No credit card</span>
               </span>
-              <span className="w-1 h-1 rounded-full bg-border hidden sm:block" />
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-4 w-4 text-accent" />
-                14-day free trial
+              <span className="flex items-center gap-2 px-4 py-2 rounded-full bg-primary/5 border border-primary/20">
+                <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />
+                <span className="font-medium">14-day free trial</span>
               </span>
-              <span className="w-1 h-1 rounded-full bg-border hidden sm:block" />
-              <span className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-4 w-4 text-accent" />
-                Cancel anytime
+              <span className="flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/5 border border-emerald-500/20">
+                <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-500" />
+                <span className="font-medium">Cancel anytime</span>
               </span>
             </div>
           </div>
 
-          {/* Dashboard Preview */}
-          <div className="mt-16 lg:mt-20 relative animate-scale-in" style={{ animationDelay: '400ms' }}>
+          {/* Enhanced Dashboard Preview */}
+          <div className="mt-16 lg:mt-24 relative animate-scale-in" style={{ animationDelay: '400ms' }}>
             <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10 pointer-events-none" />
-            <div className="relative mx-auto max-w-5xl">
-              <div className="absolute -inset-4 bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 rounded-3xl blur-2xl opacity-50" />
-              <div className="relative bg-card border border-border/50 rounded-3xl shadow-2xl overflow-hidden">
+            <div className="relative mx-auto max-w-6xl">
+              <div className="absolute -inset-6 bg-gradient-to-r from-primary/30 via-violet-500/30 to-accent/30 rounded-3xl blur-3xl opacity-60 animate-pulse" />
+              <div className="relative bg-card/95 backdrop-blur-xl border-2 border-primary/20 rounded-3xl shadow-2xl overflow-hidden hover:border-primary/40 transition-all duration-500">
                 <div className="bg-secondary/50 px-4 py-3 flex items-center gap-2 border-b border-border/50">
                   <div className="flex gap-2">
                     <div className="w-3 h-3 rounded-full bg-destructive/70" />
@@ -402,17 +486,17 @@ const Landing = () => {
                 <div className="p-6 lg:p-8 bg-gradient-to-br from-background to-secondary/30">
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                     {[
-                      { label: "Today's Patients", value: '24', icon: Users, color: 'text-blue-500', bg: 'bg-blue-500/10' },
-                      { label: 'Prescriptions', value: '18', icon: FileText, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
-                      { label: 'Appointments', value: '12', icon: Calendar, color: 'text-orange-500', bg: 'bg-orange-500/10' },
-                      { label: 'Revenue', value: '₹24K', icon: TrendingUp, color: 'text-violet-500', bg: 'bg-violet-500/10' }
+                      { label: "Today's Patients", value: '24', icon: Users, color: 'text-blue-500', bg: 'bg-gradient-to-br from-blue-500/20 to-blue-600/20', border: 'border-blue-500/20' },
+                      { label: 'Prescriptions', value: '18', icon: FileText, color: 'text-emerald-500', bg: 'bg-gradient-to-br from-emerald-500/20 to-emerald-600/20', border: 'border-emerald-500/20' },
+                      { label: 'Appointments', value: '12', icon: Calendar, color: 'text-orange-500', bg: 'bg-gradient-to-br from-orange-500/20 to-orange-600/20', border: 'border-orange-500/20' },
+                      { label: 'Revenue', value: '₹24K', icon: TrendingUp, color: 'text-violet-500', bg: 'bg-gradient-to-br from-violet-500/20 to-violet-600/20', border: 'border-violet-500/20' }
                     ].map((stat, i) => (
-                      <div key={i} className="p-4 rounded-2xl bg-card border border-border/50">
-                        <div className={`w-10 h-10 rounded-xl ${stat.bg} flex items-center justify-center mb-3`}>
-                          <stat.icon className={`w-5 h-5 ${stat.color}`} />
+                      <div key={i} className="group p-5 rounded-2xl bg-gradient-to-br from-card to-secondary/30 border border-border/50 hover:border-primary/40 transition-all duration-300 hover:shadow-lg hover:-translate-y-1">
+                        <div className={`w-12 h-12 rounded-xl ${stat.bg} border ${stat.border} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
+                          <stat.icon className={`w-6 h-6 ${stat.color}`} />
                         </div>
-                        <p className="text-2xl font-bold text-foreground">{stat.value}</p>
-                        <p className="text-xs text-muted-foreground">{stat.label}</p>
+                        <p className="text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent mb-1">{stat.value}</p>
+                        <p className="text-xs font-medium text-muted-foreground">{stat.label}</p>
                       </div>
                     ))}
                   </div>
@@ -447,7 +531,8 @@ const Landing = () => {
             {stats.map((stat, index) => (
               <div 
                 key={index} 
-                className="relative group p-6 lg:p-8 rounded-3xl bg-gradient-to-br from-card to-secondary/30 border border-border/50 hover:border-primary/30 transition-all hover:shadow-xl"
+                className={`scroll-animate scroll-animate-scale relative group p-6 lg:p-8 rounded-3xl bg-gradient-to-br from-card to-secondary/30 border border-border/50 hover:border-primary/30 transition-all hover:shadow-xl`}
+                style={{ transitionDelay: `${index * 100}ms` }}
               >
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-accent/5 rounded-3xl opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="relative">
@@ -471,7 +556,7 @@ const Landing = () => {
         <div className="absolute top-1/2 right-0 w-96 h-96 bg-accent/10 rounded-full blur-[100px] -translate-y-1/2" />
         
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
-          <div className="text-center mb-16 lg:mb-20">
+          <div className="text-center mb-16 lg:mb-20 scroll-animate">
             <Badge className="mb-4 px-4 py-2 rounded-full bg-primary/10 text-primary border-primary/20" variant="outline">
               <Zap className="h-3 w-3 mr-2" />
               Powerful Features
@@ -491,20 +576,21 @@ const Landing = () => {
             {features.map((feature, index) => (
               <Card 
                 key={index} 
-                className="group relative border-border/50 hover:border-primary/30 rounded-3xl overflow-hidden transition-all duration-500 hover:shadow-2xl hover:-translate-y-2"
-                style={{ animationDelay: feature.delay }}
+                className={`scroll-animate scroll-animate-scale group relative border-2 border-border/50 hover:border-primary/50 rounded-3xl overflow-hidden transition-all duration-500 hover:shadow-2xl hover:-translate-y-3 bg-gradient-to-br from-card to-secondary/20`}
+                style={{ transitionDelay: `${index * 100}ms` }}
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-                <CardHeader className="pb-4 relative">
-                  <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform duration-300`}>
-                    <feature.icon className="h-7 w-7 text-white" />
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-accent/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-primary/5 to-transparent rounded-full blur-2xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                <CardHeader className="pb-4 relative z-10">
+                  <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center mb-4 shadow-xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-300 group-hover:shadow-2xl`}>
+                    <feature.icon className="h-8 w-8 text-white" />
                   </div>
-                  <CardTitle className="text-xl lg:text-2xl group-hover:text-primary transition-colors">{feature.title}</CardTitle>
+                  <CardTitle className="text-xl lg:text-2xl font-bold group-hover:text-primary transition-colors mb-2">{feature.title}</CardTitle>
                 </CardHeader>
-                <CardContent className="relative">
-                  <CardDescription className="text-base lg:text-lg leading-relaxed">{feature.description}</CardDescription>
-                  <div className="mt-4 flex items-center text-primary font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                    Learn more <ArrowUpRight className="h-4 w-4 ml-1" />
+                <CardContent className="relative z-10">
+                  <CardDescription className="text-base lg:text-lg leading-relaxed text-muted-foreground">{feature.description}</CardDescription>
+                  <div className="mt-6 flex items-center text-primary font-semibold opacity-0 group-hover:opacity-100 transition-all duration-300 group-hover:translate-x-1">
+                    Learn more <ArrowUpRight className="h-5 w-5 ml-2 group-hover:translate-x-1 transition-transform" />
                   </div>
                 </CardContent>
               </Card>
@@ -520,7 +606,7 @@ const Landing = () => {
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
-          <div className="text-center mb-16 lg:mb-20">
+          <div className="text-center mb-16 lg:mb-20 scroll-animate">
             <Badge className="mb-4 px-4 py-2 rounded-full bg-accent/10 text-accent border-accent/20" variant="outline">
               <Heart className="h-3 w-3 mr-2" />
               Simple Pricing
@@ -537,11 +623,12 @@ const Landing = () => {
             {plans.map((plan, index) => (
               <Card 
                 key={index} 
-                className={`relative rounded-3xl overflow-hidden transition-all duration-300 ${
+                className={`scroll-animate scroll-animate-scale relative rounded-3xl overflow-hidden transition-all duration-300 ${
                   plan.popular 
                     ? 'border-2 border-primary shadow-2xl shadow-primary/20 lg:scale-105 z-10' 
                     : 'border-border/50 hover:border-primary/30 hover:shadow-xl'
                 }`}
+                style={{ transitionDelay: `${index * 150}ms` }}
               >
                 {plan.popular && (
                   <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-primary to-accent text-white text-center py-2.5 text-sm font-bold tracking-wide">
@@ -565,9 +652,10 @@ const Landing = () => {
                       <span className="text-5xl font-bold text-foreground">₹{plan.price}</span>
                       <span className="text-muted-foreground text-lg">/mo</span>
                     </div>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      or ₹{plan.yearlyPrice}/year <Badge variant="secondary" className="ml-2">Save 17%</Badge>
-                    </p>
+                    <div className="text-sm text-muted-foreground mt-2 flex items-center gap-2 flex-wrap">
+                      <span>or ₹{plan.yearlyPrice}/year</span>
+                      <Badge variant="secondary">Save 17%</Badge>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-6 pb-8">
@@ -611,7 +699,7 @@ const Landing = () => {
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
-          <div className="text-center mb-16 lg:mb-20">
+          <div className="text-center mb-16 lg:mb-20 scroll-animate">
             <Badge className="mb-4 px-4 py-2 rounded-full bg-warning/10 text-warning border-warning/20" variant="outline">
               <Star className="h-3 w-3 mr-2 fill-current" />
               Customer Stories
@@ -628,9 +716,10 @@ const Landing = () => {
             {testimonials.map((testimonial, index) => (
               <Card 
                 key={index} 
-                className={`relative border-border/50 rounded-3xl overflow-hidden transition-all duration-500 hover:shadow-xl hover:-translate-y-1 ${
+                className={`scroll-animate scroll-animate-scale relative border-border/50 rounded-3xl overflow-hidden transition-all duration-500 hover:shadow-xl hover:-translate-y-1 ${
                   activeTestimonial === index ? 'ring-2 ring-primary/30' : ''
                 }`}
+                style={{ transitionDelay: `${index * 150}ms` }}
               >
                 <CardContent className="p-6 lg:p-8">
                   <div className="flex gap-1 mb-4">
@@ -672,38 +761,44 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-16 lg:py-24 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary to-accent" />
+      {/* Enhanced CTA Section */}
+      <section className="py-20 lg:py-32 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary via-violet-600 to-accent animate-gradient" style={{ backgroundSize: '200% 200%' }} />
         <div className="absolute inset-0">
-          <div className="absolute top-0 left-0 w-full h-full bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSA2MCAwIEwgMCAwIDAgNjAiIGZpbGw9Im5vbmUiIHN0cm9rZT0icmdiYSgyNTUsMjU1LDI1NSwwLjA1KSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] opacity-50" />
+          <div className="absolute top-0 left-0 w-full h-full bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSA2MCAwIEwgMCAwIDAgNjAiIGZpbGw9Im5vbmUiIHN0cm9rZT0icmdiYSgyNTUsMjU1LDI1NSwwLjA1KSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] opacity-40" />
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-white/10 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-white/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
         </div>
 
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 mb-8">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 mb-8 scroll-animate scroll-animate-scale">
             <Sparkles className="h-4 w-4 text-white" />
             <span className="text-white/90 font-medium">Join 10,000+ Happy Doctors</span>
           </div>
           
-          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6 tracking-tight leading-tight">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6 tracking-tight leading-tight scroll-animate">
             Ready to Transform
             <span className="block">Your Practice?</span>
           </h2>
-          <p className="text-lg lg:text-xl text-white/80 mb-10 max-w-2xl mx-auto">
+          <p className="text-lg lg:text-xl text-white/80 mb-10 max-w-2xl mx-auto scroll-animate scroll-animate-delay-200">
             Start your free trial today. No credit card required. 
             Get up and running in under 5 minutes.
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/auth">
-              <Button size="lg" className="gap-2 text-lg px-10 h-16 bg-white text-primary hover:bg-white/90 shadow-2xl rounded-2xl font-bold w-full sm:w-auto">
-                Start Free Trial
-                <ArrowRight className="h-5 w-5" />
+              <Button size="lg" className="gap-2 text-lg px-12 h-[72px] bg-white text-primary hover:bg-white/95 shadow-2xl hover:shadow-white/50 rounded-2xl font-bold w-full sm:w-auto hover:scale-105 transition-all duration-300 border-0">
+                <span>Start Free Trial</span>
+                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>
-            <Button size="lg" variant="outline" className="gap-2 text-lg px-10 h-16 border-2 border-white/30 text-white hover:bg-white/10 rounded-2xl font-bold backdrop-blur-sm">
+            <Button 
+              size="lg" 
+              variant="outline" 
+              className="gap-2 text-lg px-12 h-[72px] border-2 border-white/80 bg-white/10 backdrop-blur-sm text-white hover:bg-white/25 hover:border-white hover:text-white rounded-2xl font-bold transition-all duration-300 hover:scale-105 shadow-lg shadow-white/10 w-full sm:w-auto"
+            >
               <Phone className="h-5 w-5" />
-              Talk to Sales
+              <span className="font-bold">Talk to Sales</span>
             </Button>
           </div>
 
@@ -728,7 +823,7 @@ const Landing = () => {
       <section id="contact" className="py-16 lg:py-24 bg-secondary/30">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16">
-            <div>
+            <div className="scroll-animate scroll-animate-left">
               <Badge className="mb-4 rounded-full" variant="outline">Contact Us</Badge>
               <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-6">
                 Let's Get in Touch
@@ -773,7 +868,7 @@ const Landing = () => {
               </div>
             </div>
 
-            <Card className="rounded-3xl border-border/50 overflow-hidden">
+            <Card className="scroll-animate scroll-animate-right rounded-3xl border-border/50 overflow-hidden">
               <CardContent className="p-6 lg:p-8">
                 <h3 className="text-xl font-bold text-foreground mb-6">Send us a message</h3>
                 <form className="space-y-5">
@@ -822,71 +917,226 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="py-12 lg:py-16 bg-foreground text-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12 mb-12">
-            <div className="sm:col-span-2 lg:col-span-1">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-accent shadow-lg">
-                  <Stethoscope className="h-6 w-6 text-white" />
+      {/* Enhanced Footer */}
+      <footer className="relative py-16 lg:py-20 bg-gradient-to-br from-foreground via-foreground to-slate-900 text-background overflow-hidden">
+        {/* Decorative Background Elements */}
+        <div className="absolute inset-0">
+          <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-accent/10 rounded-full blur-3xl" />
+          <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSA2MCAwIEwgMCAwIDAgNjAiIGZpbGw9Im5vbmUiIHN0cm9rZT0icmdiYSgyNTUsMjU1LDI1NSwwLjAzKSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] opacity-30" />
+        </div>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+          {/* Main Footer Content */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-12 mb-12">
+            {/* Brand Section */}
+            <div className="sm:col-span-2 lg:col-span-2">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-primary to-accent shadow-xl shadow-primary/30">
+                  <Stethoscope className="h-7 w-7 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-background">ElectroMed</h3>
-                  <p className="text-xs text-background/60">AI-Powered Clinic Software</p>
+                  <h3 className="text-2xl font-bold text-background">ElectroMed</h3>
+                  <p className="text-sm text-background/70 font-medium">AI-Powered Clinic Software</p>
                 </div>
               </div>
-              <p className="text-background/70 mb-4">
-                India's #1 clinic management software. Trusted by 10,000+ doctors.
+              <p className="text-background/80 mb-6 leading-relaxed max-w-md">
+                India's #1 clinic management software. Trusted by 10,000+ doctors across the country. Transform your practice with AI-powered solutions.
               </p>
-              <div className="flex gap-3">
-                <a href="#" className="w-10 h-10 rounded-xl bg-background/10 hover:bg-background/20 flex items-center justify-center transition-colors">
-                  <Globe className="h-5 w-5" />
+              
+              {/* Social Media Links */}
+              <div className="flex gap-3 mb-6">
+                <a 
+                  href="#" 
+                  className="group w-11 h-11 rounded-xl bg-background/10 hover:bg-gradient-to-br hover:from-primary hover:to-accent flex items-center justify-center transition-all duration-300 hover:scale-110 hover:shadow-lg hover:shadow-primary/30"
+                  aria-label="Website"
+                >
+                  <Globe className="h-5 w-5 text-background/70 group-hover:text-white transition-colors" />
                 </a>
-                <a href="#" className="w-10 h-10 rounded-xl bg-background/10 hover:bg-background/20 flex items-center justify-center transition-colors">
-                  <MessageSquare className="h-5 w-5" />
+                <a 
+                  href="#" 
+                  className="group w-11 h-11 rounded-xl bg-background/10 hover:bg-gradient-to-br hover:from-blue-500 hover:to-blue-600 flex items-center justify-center transition-all duration-300 hover:scale-110 hover:shadow-lg hover:shadow-blue-500/30"
+                  aria-label="Facebook"
+                >
+                  <MessageSquare className="h-5 w-5 text-background/70 group-hover:text-white transition-colors" />
                 </a>
+                <a 
+                  href="#" 
+                  className="group w-11 h-11 rounded-xl bg-background/10 hover:bg-gradient-to-br hover:from-emerald-500 hover:to-emerald-600 flex items-center justify-center transition-all duration-300 hover:scale-110 hover:shadow-lg hover:shadow-emerald-500/30"
+                  aria-label="WhatsApp"
+                >
+                  <Phone className="h-5 w-5 text-background/70 group-hover:text-white transition-colors" />
+                </a>
+                <a 
+                  href="#" 
+                  className="group w-11 h-11 rounded-xl bg-background/10 hover:bg-gradient-to-br hover:from-violet-500 hover:to-violet-600 flex items-center justify-center transition-all duration-300 hover:scale-110 hover:shadow-lg hover:shadow-violet-500/30"
+                  aria-label="LinkedIn"
+                >
+                  <TrendingUp className="h-5 w-5 text-background/70 group-hover:text-white transition-colors" />
+                </a>
+              </div>
+
+              {/* Newsletter Subscription */}
+              <div className="p-4 rounded-2xl bg-background/5 border border-background/10">
+                <p className="text-sm font-semibold text-background mb-2">Stay Updated</p>
+                <p className="text-xs text-background/60 mb-3">Get the latest updates and features</p>
+                <div className="flex gap-2">
+                  <input 
+                    type="email" 
+                    placeholder="Enter your email"
+                    className="flex-1 px-4 py-2 rounded-xl bg-background/10 border border-background/20 text-background placeholder:text-background/50 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50"
+                  />
+                  <Button className="px-4 py-2 rounded-xl bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white text-sm font-semibold shadow-lg shadow-primary/30">
+                    Subscribe
+                  </Button>
+                </div>
               </div>
             </div>
             
+            {/* Product Links */}
             <div>
-              <h4 className="font-bold text-background mb-4">Product</h4>
-              <ul className="space-y-3 text-background/70">
-                <li><a href="#features" className="hover:text-background transition-colors">Features</a></li>
-                <li><a href="#pricing" className="hover:text-background transition-colors">Pricing</a></li>
-                <li><a href="#" className="hover:text-background transition-colors">Integrations</a></li>
-                <li><a href="#" className="hover:text-background transition-colors">API Docs</a></li>
+              <h4 className="font-bold text-background mb-6 text-lg flex items-center gap-2">
+                <Zap className="h-5 w-5 text-primary" />
+                Product
+              </h4>
+              <ul className="space-y-3">
+                <li>
+                  <a href="#features" className="flex items-center gap-2 text-background/70 hover:text-background transition-colors group">
+                    <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                    <span>Features</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="#pricing" className="flex items-center gap-2 text-background/70 hover:text-background transition-colors group">
+                    <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                    <span>Pricing</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="flex items-center gap-2 text-background/70 hover:text-background transition-colors group">
+                    <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                    <span>Integrations</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="flex items-center gap-2 text-background/70 hover:text-background transition-colors group">
+                    <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                    <span>API Docs</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="flex items-center gap-2 text-background/70 hover:text-background transition-colors group">
+                    <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                    <span>Changelog</span>
+                  </a>
+                </li>
               </ul>
             </div>
             
+            {/* Company Links */}
             <div>
-              <h4 className="font-bold text-background mb-4">Company</h4>
-              <ul className="space-y-3 text-background/70">
-                <li><a href="#" className="hover:text-background transition-colors">About Us</a></li>
-                <li><a href="#" className="hover:text-background transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-background transition-colors">Blog</a></li>
-                <li><a href="#contact" className="hover:text-background transition-colors">Contact</a></li>
+              <h4 className="font-bold text-background mb-6 text-lg flex items-center gap-2">
+                <Users className="h-5 w-5 text-accent" />
+                Company
+              </h4>
+              <ul className="space-y-3">
+                <li>
+                  <a href="#" className="flex items-center gap-2 text-background/70 hover:text-background transition-colors group">
+                    <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                    <span>About Us</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="flex items-center gap-2 text-background/70 hover:text-background transition-colors group">
+                    <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                    <span>Careers</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="flex items-center gap-2 text-background/70 hover:text-background transition-colors group">
+                    <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                    <span>Blog</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="#contact" className="flex items-center gap-2 text-background/70 hover:text-background transition-colors group">
+                    <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                    <span>Contact</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="flex items-center gap-2 text-background/70 hover:text-background transition-colors group">
+                    <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                    <span>Partners</span>
+                  </a>
+                </li>
               </ul>
             </div>
             
+            {/* Legal & Support Links */}
             <div>
-              <h4 className="font-bold text-background mb-4">Legal</h4>
-              <ul className="space-y-3 text-background/70">
-                <li><a href="#" className="hover:text-background transition-colors">Privacy Policy</a></li>
-                <li><a href="#" className="hover:text-background transition-colors">Terms of Service</a></li>
-                <li><a href="#" className="hover:text-background transition-colors">HIPAA Compliance</a></li>
-                <li><a href="#" className="hover:text-background transition-colors">Security</a></li>
+              <h4 className="font-bold text-background mb-6 text-lg flex items-center gap-2">
+                <Shield className="h-5 w-5 text-warning" />
+                Legal & Support
+              </h4>
+              <ul className="space-y-3">
+                <li>
+                  <a href="#" className="flex items-center gap-2 text-background/70 hover:text-background transition-colors group">
+                    <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                    <span>Privacy Policy</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="flex items-center gap-2 text-background/70 hover:text-background transition-colors group">
+                    <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                    <span>Terms of Service</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="flex items-center gap-2 text-background/70 hover:text-background transition-colors group">
+                    <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                    <span>HIPAA Compliance</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="flex items-center gap-2 text-background/70 hover:text-background transition-colors group">
+                    <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                    <span>Security</span>
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="flex items-center gap-2 text-background/70 hover:text-background transition-colors group">
+                    <ArrowRight className="h-4 w-4 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                    <span>Help Center</span>
+                  </a>
+                </li>
               </ul>
             </div>
           </div>
           
-          <div className="pt-8 border-t border-background/10 flex flex-col sm:flex-row justify-between items-center gap-4">
-            <p className="text-background/60 text-sm">
-              © 2024 ElectroMed. All rights reserved.
-            </p>
-            <p className="text-background/60 text-sm flex items-center gap-2">
-              Made with <Heart className="h-4 w-4 text-destructive fill-destructive" /> in India
-            </p>
+          {/* Footer Bottom */}
+          <div className="pt-8 border-t-2 border-background/20">
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-6">
+              <div className="flex flex-col sm:flex-row items-center gap-4">
+                <p className="text-background/70 text-sm">
+                  © 2024 ElectroMed. All rights reserved.
+                </p>
+                <div className="flex items-center gap-4 text-sm">
+                  <a href="#" className="text-background/60 hover:text-background transition-colors">Privacy</a>
+                  <span className="text-background/30">•</span>
+                  <a href="#" className="text-background/60 hover:text-background transition-colors">Terms</a>
+                  <span className="text-background/30">•</span>
+                  <a href="#" className="text-background/60 hover:text-background transition-colors">Cookies</a>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-background/70 text-sm">
+                <span>Made with</span>
+                <Heart className="h-4 w-4 text-destructive fill-destructive animate-pulse" />
+                <span>in</span>
+                <span className="font-semibold text-background">India</span>
+                <Award className="h-4 w-4 text-warning ml-1" />
+              </div>
+            </div>
           </div>
         </div>
       </footer>

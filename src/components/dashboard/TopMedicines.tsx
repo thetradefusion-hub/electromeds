@@ -1,6 +1,6 @@
 import { Pill, TrendingUp, Loader2 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { prescriptionApi } from '@/lib/api/prescription.api';
 import { useDoctor } from '@/hooks/useDoctor';
 
 interface MedicineUsage {
@@ -17,41 +17,40 @@ export function TopMedicines() {
     queryFn: async (): Promise<MedicineUsage[]> => {
       if (!doctorId) return [];
 
-      const { data, error } = await supabase
-        .from('prescriptions')
-        .select('medicines')
-        .eq('doctor_id', doctorId);
+      try {
+        const response = await prescriptionApi.getPrescriptions();
+        if (!response.success || !response.data) return [];
 
-      if (error) {
+        // Count medicine usage
+        const medicineCount: Record<string, number> = {};
+        response.data.forEach((prescription) => {
+          const medicines = prescription.medicines || [];
+          if (Array.isArray(medicines)) {
+            medicines.forEach((medicine: any) => {
+              const medicineName = medicine.name || medicine.medicineName || '';
+              if (medicineName) {
+                medicineCount[medicineName] = (medicineCount[medicineName] || 0) + 1;
+              }
+            });
+          }
+        });
+
+        // Convert to array and sort
+        const sorted = Object.entries(medicineCount)
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => b.count - a.count)
+          .slice(0, 5);
+
+        // Calculate percentages based on max count
+        const maxCount = sorted.length > 0 ? sorted[0].count : 1;
+        return sorted.map((m) => ({
+          ...m,
+          percentage: Math.round((m.count / maxCount) * 100),
+        }));
+      } catch (error) {
         console.error('Error fetching prescriptions:', error);
         return [];
       }
-
-      // Count medicine usage
-      const medicineCount: Record<string, number> = {};
-      (data || []).forEach((prescription) => {
-        const medicines = prescription.medicines as any[];
-        if (Array.isArray(medicines)) {
-          medicines.forEach((medicine: any) => {
-            if (medicine.name) {
-              medicineCount[medicine.name] = (medicineCount[medicine.name] || 0) + 1;
-            }
-          });
-        }
-      });
-
-      // Convert to array and sort
-      const sorted = Object.entries(medicineCount)
-        .map(([name, count]) => ({ name, count }))
-        .sort((a, b) => b.count - a.count)
-        .slice(0, 5);
-
-      // Calculate percentages based on max count
-      const maxCount = sorted.length > 0 ? sorted[0].count : 1;
-      return sorted.map((m) => ({
-        ...m,
-        percentage: Math.round((m.count / maxCount) * 100),
-      }));
     },
     enabled: !!doctorId,
   });
