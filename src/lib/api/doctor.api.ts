@@ -12,6 +12,8 @@ export interface DoctorProfile {
   specialization: string;
   clinicName?: string;
   clinicAddress?: string;
+  modality?: 'electro_homeopathy' | 'classical_homeopathy' | 'both';
+  preferredModality?: 'electro_homeopathy' | 'classical_homeopathy';
   createdAt: string;
   updatedAt: string;
 }
@@ -36,6 +38,8 @@ export interface UpdateDoctorProfileData {
   clinicAddress?: string;
   name?: string;
   phone?: string;
+  modality?: 'electro_homeopathy' | 'classical_homeopathy' | 'both';
+  preferredModality?: 'electro_homeopathy' | 'classical_homeopathy';
 }
 
 export interface StaffMember {

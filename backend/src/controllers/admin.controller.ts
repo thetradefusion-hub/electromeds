@@ -8,6 +8,9 @@ import Patient from '../models/Patient.model.js';
 import Prescription from '../models/Prescription.model.js';
 import Appointment from '../models/Appointment.model.js';
 import Subscription from '../models/Subscription.model.js';
+import CaseRecord from '../models/CaseRecord.model.js';
+import Remedy from '../models/Remedy.model.js';
+import Rubric from '../models/Rubric.model.js';
 import { CustomError } from '../middleware/errorHandler.js';
 
 /**
@@ -537,6 +540,7 @@ export const getGlobalSymptoms = async (
       throw new CustomError('Access denied', 403);
     }
 
+    // Get all global symptoms (both Electro and Classical Homeopathy)
     const symptoms = await Symptom.find({ isGlobal: true })
       .sort({ name: 1 })
       .lean();
@@ -662,6 +666,21 @@ export const getPlatformStats = async (
       totalPatients,
       totalPrescriptions,
       totalAppointments,
+      // Classical Homeopathy stats
+      totalCaseRecords,
+      totalRemedies,
+      totalRubrics,
+      // Modality breakdown
+      electroPrescriptions,
+      classicalPrescriptions,
+      electroDoctors,
+      classicalDoctors,
+      bothModalityDoctors,
+      // Global symptoms and medicines
+      totalGlobalSymptoms,
+      totalGlobalMedicines,
+      totalSymptoms,
+      totalMedicines,
     ] = await Promise.all([
       User.countDocuments({}),
       User.countDocuments({ role: 'doctor' }),
@@ -669,6 +688,21 @@ export const getPlatformStats = async (
       Patient.countDocuments({}),
       Prescription.countDocuments({}),
       Appointment.countDocuments({}),
+      // Classical Homeopathy
+      CaseRecord.countDocuments({}),
+      Remedy.countDocuments({}),
+      Rubric.countDocuments({}),
+      // Modality breakdown
+      Prescription.countDocuments({ modality: 'electro_homeopathy' }),
+      Prescription.countDocuments({ modality: 'classical_homeopathy' }),
+      Doctor.countDocuments({ modality: 'electro_homeopathy' }),
+      Doctor.countDocuments({ modality: 'classical_homeopathy' }),
+      Doctor.countDocuments({ modality: 'both' }),
+      // Global symptoms and medicines
+      Symptom.countDocuments({ isGlobal: true }),
+      Medicine.countDocuments({ isGlobal: true }),
+      Symptom.countDocuments({}),
+      Medicine.countDocuments({}),
     ]);
 
     res.json({
@@ -680,6 +714,25 @@ export const getPlatformStats = async (
         totalPatients,
         totalPrescriptions,
         totalAppointments,
+        // Classical Homeopathy
+        totalCaseRecords,
+        totalRemedies,
+        totalRubrics,
+        // Global symptoms and medicines
+        totalGlobalSymptoms,
+        totalGlobalMedicines,
+        totalSymptoms,
+        totalMedicines,
+        // Modality breakdown
+        prescriptionsByModality: {
+          electro_homeopathy: electroPrescriptions,
+          classical_homeopathy: classicalPrescriptions,
+        },
+        doctorsByModality: {
+          electro_homeopathy: electroDoctors,
+          classical_homeopathy: classicalDoctors,
+          both: bothModalityDoctors,
+        },
       },
     });
   } catch (error) {

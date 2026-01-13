@@ -43,6 +43,8 @@ interface ProfileData {
   specialization: string;
   clinicName: string;
   clinicAddress: string;
+  modality: 'electro_homeopathy' | 'classical_homeopathy' | 'both';
+  preferredModality?: 'electro_homeopathy' | 'classical_homeopathy';
 }
 
 export default function Settings() {
@@ -61,6 +63,8 @@ export default function Settings() {
     specialization: '',
     clinicName: '',
     clinicAddress: '',
+    modality: 'electro_homeopathy',
+    preferredModality: undefined,
   });
 
   // Subscription data
@@ -139,6 +143,8 @@ export default function Settings() {
             specialization: doctor.specialization || '',
             clinicName: doctor.clinicName || '',
             clinicAddress: doctor.clinicAddress || '',
+            modality: doctor.modality || 'electro_homeopathy',
+            preferredModality: doctor.preferredModality,
           });
         } else {
           // Fallback to user data only
@@ -151,6 +157,8 @@ export default function Settings() {
             specialization: '',
             clinicName: '',
             clinicAddress: '',
+            modality: 'electro_homeopathy',
+            preferredModality: undefined,
           });
         }
       } catch (error) {
@@ -165,6 +173,8 @@ export default function Settings() {
           specialization: '',
           clinicName: '',
           clinicAddress: '',
+          modality: 'electro_homeopathy',
+          preferredModality: undefined,
         });
       } finally {
         setLoading(false);
@@ -188,10 +198,29 @@ export default function Settings() {
         specialization: profile.specialization,
         clinicName: profile.clinicName,
         clinicAddress: profile.clinicAddress,
+        modality: profile.modality,
+        preferredModality: profile.preferredModality,
       });
 
       if (!updateRes.success) {
         throw new Error(updateRes.message || 'Failed to update profile');
+      }
+
+      // Update profile state with the response data
+      if (updateRes.data?.doctor) {
+        const updatedDoctor = updateRes.data.doctor;
+        setProfile({
+          name: updatedDoctor.name || profile.name,
+          email: updatedDoctor.email || profile.email,
+          phone: updatedDoctor.phone || '',
+          registrationNo: updatedDoctor.registrationNo || '',
+          qualification: updatedDoctor.qualification || '',
+          specialization: updatedDoctor.specialization || '',
+          clinicName: updatedDoctor.clinicName || '',
+          clinicAddress: updatedDoctor.clinicAddress || '',
+          modality: updatedDoctor.modality || 'electro_homeopathy',
+          preferredModality: updatedDoctor.preferredModality,
+        });
       }
 
       toast.success('Settings saved successfully!');
@@ -416,6 +445,74 @@ export default function Settings() {
                     className="medical-input border-border/50 focus:border-primary/50 focus:ring-2 focus:ring-primary/20"
                     placeholder="e.g., Cardiology, General Medicine, etc."
                   />
+                </div>
+                <div className="space-y-2 sm:col-span-2">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10">
+                      <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                    </div>
+                    Practice Modality
+                  </label>
+                  <div className="space-y-3">
+                    <RadioGroup
+                      value={profile.modality}
+                      onValueChange={(value: 'electro_homeopathy' | 'classical_homeopathy' | 'both') => {
+                        setProfile({
+                          ...profile,
+                          modality: value,
+                          preferredModality: value === 'both' ? profile.preferredModality : undefined,
+                        });
+                      }}
+                    >
+                      <div className="flex items-center space-x-2 rounded-lg border border-border/50 p-3 hover:bg-secondary/50 transition-colors">
+                        <RadioGroupItem value="electro_homeopathy" id="electro" />
+                        <Label htmlFor="electro" className="flex-1 cursor-pointer">
+                          <span className="font-medium">Electro Homeopathy</span>
+                          <span className="text-xs text-muted-foreground block">Traditional Electro Homeopathy practice</span>
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2 rounded-lg border border-border/50 p-3 hover:bg-secondary/50 transition-colors">
+                        <RadioGroupItem value="classical_homeopathy" id="classical" />
+                        <Label htmlFor="classical" className="flex-1 cursor-pointer">
+                          <span className="font-medium">Classical Homeopathy</span>
+                          <span className="text-xs text-muted-foreground block">Traditional Classical Homeopathy with repertory</span>
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2 rounded-lg border border-border/50 p-3 hover:bg-secondary/50 transition-colors">
+                        <RadioGroupItem value="both" id="both" />
+                        <Label htmlFor="both" className="flex-1 cursor-pointer">
+                          <span className="font-medium">Both Modalities</span>
+                          <span className="text-xs text-muted-foreground block">Practice both Electro and Classical Homeopathy</span>
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                    {profile.modality === 'both' && (
+                      <div className="ml-6 space-y-2">
+                        <label className="text-xs font-medium text-muted-foreground">
+                          Preferred Modality (Default for new consultations)
+                        </label>
+                        <RadioGroup
+                          value={profile.preferredModality || 'electro_homeopathy'}
+                          onValueChange={(value: 'electro_homeopathy' | 'classical_homeopathy') => {
+                            setProfile({ ...profile, preferredModality: value });
+                          }}
+                        >
+                          <div className="flex items-center space-x-2 rounded-lg border border-border/30 p-2 bg-muted/30">
+                            <RadioGroupItem value="electro_homeopathy" id="pref-electro" />
+                            <Label htmlFor="pref-electro" className="cursor-pointer text-sm">
+                              Electro Homeopathy
+                            </Label>
+                          </div>
+                          <div className="flex items-center space-x-2 rounded-lg border border-border/30 p-2 bg-muted/30">
+                            <RadioGroupItem value="classical_homeopathy" id="pref-classical" />
+                            <Label htmlFor="pref-classical" className="cursor-pointer text-sm">
+                              Classical Homeopathy
+                            </Label>
+                          </div>
+                        </RadioGroup>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>

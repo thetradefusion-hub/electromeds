@@ -146,18 +146,24 @@ const seedSymptoms = async () => {
     await mongoose.connect(mongoUri);
     console.log('✅ Connected to MongoDB');
 
-    // Check if symptoms already exist
-    const existingCount = await Symptom.countDocuments({ isGlobal: true });
-    if (existingCount > 0) {
-      console.log(`⚠️  Found ${existingCount} existing global symptoms. Skipping seed.`);
-      console.log('💡 To re-seed, delete existing global symptoms first.');
+    // Check if Electro Homeopathy symptoms already exist
+    const existingElectroCount = await Symptom.countDocuments({ 
+      modality: 'electro_homeopathy',
+      isGlobal: true 
+    });
+    if (existingElectroCount > 0) {
+      console.log(`⚠️  Found ${existingElectroCount} existing Electro Homeopathy symptoms. Skipping seed.`);
+      console.log('💡 To re-seed, delete existing Electro Homeopathy symptoms first.');
       await mongoose.disconnect();
       return;
     }
 
-    // Insert symptoms
-    const symptoms = electroHomeopathySymptoms.map(symptom => ({
+    // Insert symptoms with modality and code
+    const symptoms = electroHomeopathySymptoms.map((symptom, index) => ({
       ...symptom,
+      code: `SYM_ELECTRO_${String(index + 1).padStart(3, '0')}`,
+      modality: 'electro_homeopathy' as const,
+      synonyms: [],
       isGlobal: true,
       doctorId: undefined,
     }));

@@ -12,8 +12,13 @@ export interface PrescriptionMedicine {
   medicineId: string;
   name: string;
   category: string;
-  dosage: string;
-  duration: string;
+  modality?: 'electro_homeopathy' | 'classical_homeopathy';
+  // Electro Homeopathy
+  dosage?: string;
+  duration?: string;
+  // Classical Homeopathy
+  potency?: string;
+  repetition?: string;
   instructions?: string;
 }
 
@@ -30,6 +35,7 @@ export interface Prescription {
     address?: string;
   };
   doctorId: string;
+  modality?: 'electro_homeopathy' | 'classical_homeopathy';
   symptoms: PrescriptionSymptom[];
   medicines: PrescriptionMedicine[];
   diagnosis?: string;

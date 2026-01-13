@@ -62,8 +62,11 @@ interface PrescriptionMedicine {
   id: string;
   name: string;
   category: string;
-  dosage: string;
-  duration: string;
+  modality?: 'electro_homeopathy' | 'classical_homeopathy';
+  dosage?: string;
+  duration?: string;
+  potency?: string;
+  repetition?: string;
   instructions?: string;
 }
 
@@ -795,7 +798,17 @@ export default function PatientHistory() {
                                       </span>
                                     </div>
                                     <p className="mt-1 text-muted-foreground">
-                                      {medicine.dosage} • {medicine.duration}
+                                      {medicine.modality === 'classical_homeopathy' ? (
+                                        <>
+                                          {medicine.potency && `${medicine.potency}`}
+                                          {medicine.repetition && ` • ${medicine.repetition}`}
+                                        </>
+                                      ) : (
+                                        <>
+                                          {medicine.dosage && `${medicine.dosage}`}
+                                          {medicine.duration && ` • ${medicine.duration}`}
+                                        </>
+                                      )}
                                       {medicine.instructions && ` • ${medicine.instructions}`}
                                     </p>
                                   </div>

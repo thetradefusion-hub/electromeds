@@ -11,6 +11,12 @@ const mapSymptom = (sym: Symptom) => ({
   description: sym.description || null,
   is_global: sym.isGlobal,
   doctor_id: sym.doctorId || null,
+  modality: sym.modality,
+  code: sym.code,
+  synonyms: sym.synonyms || [],
+  location: sym.location,
+  sensation: sym.sensation,
+  modalities: sym.modalities || [],
   created_at: sym.createdAt,
 });
 
@@ -23,6 +29,12 @@ export interface Symptom {
   description: string | null;
   is_global: boolean;
   doctor_id: string | null;
+  modality?: 'electro_homeopathy' | 'classical_homeopathy';
+  code?: string;
+  synonyms?: string[];
+  location?: string;
+  sensation?: string;
+  modalities?: string[];
   created_at: string;
 }
 

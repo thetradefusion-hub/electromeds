@@ -7,6 +7,8 @@ import { usePrescriptions, PrescriptionSymptom, PrescriptionMedicine } from '@/h
 import { generatePrescriptionPDF } from '@/utils/generatePrescriptionPDF';
 import { useWhatsAppShare } from '@/hooks/useWhatsAppShare';
 import { MedicalReportAnalyzer } from '@/components/consultation/MedicalReportAnalyzer';
+import { ClassicalHomeopathyConsultation } from '@/components/consultation/ClassicalHomeopathyConsultation';
+import { doctorApi } from '@/lib/api/doctor.api';
 import {
   User,
   Search,
@@ -29,6 +31,7 @@ import {
   MessageCircle,
   ChevronDown,
   ChevronUp,
+  Beaker,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
@@ -94,6 +97,12 @@ export default function Consultation() {
   const { medicines } = useMedicines();
   const { createPrescription, doctorInfo } = usePrescriptions();
 
+  // Modality state
+  const [doctorModality, setDoctorModality] = useState<'electro_homeopathy' | 'classical_homeopathy' | 'both'>('electro_homeopathy');
+  const [preferredModality, setPreferredModality] = useState<'electro_homeopathy' | 'classical_homeopathy'>('electro_homeopathy');
+  const [currentModality, setCurrentModality] = useState<'electro_homeopathy' | 'classical_homeopathy'>('electro_homeopathy');
+  const [loadingModality, setLoadingModality] = useState(true);
+
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(patientIdFromUrl);
   const [patientSearch, setPatientSearch] = useState('');
   const [symptomSearch, setSymptomSearch] = useState('');
@@ -120,6 +129,36 @@ export default function Consultation() {
   const [showHistory, setShowHistory] = useState(true);
 
   const patient = patients.find((p) => p.id === selectedPatientId);
+
+  // Fetch doctor modality
+  useEffect(() => {
+    const fetchDoctorModality = async () => {
+      try {
+        const response = await doctorApi.getMyProfile();
+        if (response.success && response.data) {
+          const doctor = response.data.doctor;
+          const modality = doctor.modality || 'electro_homeopathy';
+          const preferred = doctor.preferredModality || 'electro_homeopathy';
+          
+          setDoctorModality(modality);
+          setPreferredModality(preferred);
+          
+          // Set current modality based on doctor's settings
+          if (modality === 'both') {
+            setCurrentModality(preferred);
+          } else {
+            setCurrentModality(modality);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching doctor modality:', error);
+      } finally {
+        setLoadingModality(false);
+      }
+    };
+
+    fetchDoctorModality();
+  }, []);
 
   // Fetch patient history when patient is selected
   useEffect(() => {
@@ -234,14 +273,29 @@ export default function Consultation() {
     const symptomIds = selectedSymptoms.map((s) => s.symptomId);
 
     try {
+      console.log('[Consultation] Requesting medicine suggestions for symptom IDs:', symptomIds);
       const response = await medicineRuleApi.suggestMedicines(symptomIds);
       
+      console.log('[Consultation] Medicine suggestion response:', {
+        success: response.success,
+        rulesCount: response.data?.rules?.length || 0,
+        medicineIdsCount: response.data?.suggestedMedicineIds?.length || 0,
+      });
+
       if (!response.success || !response.data) {
         toast.error('Failed to fetch suggestions');
         return;
       }
 
       const { rules: matchingRules, suggestedMedicineIds } = response.data;
+      
+      if (suggestedMedicineIds.length === 0) {
+        toast.warning('No medicine suggestions found for selected symptoms');
+        setShowSuggestions(true);
+        setSuggestedMedicines([]);
+        return;
+      }
+
       const medicineMap = new Map<string, SuggestedMedicine>();
 
       // Get medicine details for suggested IDs
@@ -249,28 +303,54 @@ export default function Consultation() {
         suggestedMedicineIds.includes(m.id)
       );
 
+      console.log('[Consultation] Found medicines in local list:', suggestedMedicinesList.length, 'out of', suggestedMedicineIds.length, 'suggested');
+
       // Use rules to get dosage and duration
       matchingRules.forEach((rule) => {
-        rule.medicineIds.forEach((medId: string) => {
-          const medicine = suggestedMedicinesList.find((m) => m.id === medId);
-          if (medicine && !medicineMap.has(medId)) {
-            medicineMap.set(medId, {
-              medicineId: medId,
+        if (rule.medicineIds && rule.medicineIds.length > 0) {
+          rule.medicineIds.forEach((medId: string) => {
+            const medicine = suggestedMedicinesList.find((m) => m.id === medId.toString());
+            if (medicine && !medicineMap.has(medId.toString())) {
+              medicineMap.set(medId.toString(), {
+                medicineId: medId.toString(),
+                medicine,
+                dosage: rule.dosage || medicine.default_dosage || '10 drops twice daily',
+                duration: rule.duration || '7 days',
+                instructions: '',
+              });
+            }
+          });
+        }
+      });
+
+      // If no medicines found from rules, try to add from suggested IDs directly
+      if (medicineMap.size === 0 && suggestedMedicineIds.length > 0) {
+        console.log('[Consultation] No medicines found from rules, trying direct match...');
+        suggestedMedicineIds.forEach((medId: string) => {
+          const medicine = medicines.find((m) => m.id === medId.toString());
+          if (medicine && !medicineMap.has(medId.toString())) {
+            medicineMap.set(medId.toString(), {
+              medicineId: medId.toString(),
               medicine,
-              dosage: rule.dosage || medicine.defaultDosage || '10 drops twice daily',
-              duration: rule.duration || '7 days',
+              dosage: medicine.default_dosage || '10 drops twice daily',
+              duration: '7 days',
               instructions: '',
             });
           }
         });
-      });
+      }
 
       setSuggestedMedicines(Array.from(medicineMap.values()));
       setShowSuggestions(true);
-      toast.success(`Found ${medicineMap.size} medicine suggestions`);
-    } catch (error) {
-      console.error('Error fetching suggestions:', error);
-      toast.error('Failed to fetch suggestions');
+      
+      if (medicineMap.size > 0) {
+        toast.success(`Found ${medicineMap.size} medicine suggestions`);
+      } else {
+        toast.warning('No matching medicines found. Please check if medicines exist for selected symptoms.');
+      }
+    } catch (error: any) {
+      console.error('[Consultation] Error fetching suggestions:', error);
+      toast.error('Failed to fetch suggestions: ' + (error.response?.data?.message || error.message));
     }
   };
 
@@ -324,6 +404,7 @@ export default function Consultation() {
       id: sm.medicineId,
       name: sm.medicine.name,
       category: sm.medicine.category,
+      modality: sm.medicine.modality || 'electro_homeopathy', // Add modality
       dosage: sm.dosage,
       duration: sm.duration,
       instructions: sm.instructions,
@@ -425,13 +506,67 @@ export default function Consultation() {
     );
   }
 
+  // Show loading while fetching modality
+  if (loadingModality) {
+    return (
+      <MainLayout title="New Consultation" subtitle="Record symptoms and generate prescription">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </MainLayout>
+    );
+  }
+
   return (
     <MainLayout title="New Consultation" subtitle="Record symptoms and generate prescription">
-      <div className="grid gap-6 lg:grid-cols-3">
-        {/* Left Panel - Patient & Symptoms */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Patient Selection */}
-          <div className="medical-card">
+      <div className="space-y-6">
+        {/* Modality Selector */}
+        {doctorModality === 'both' && (
+          <div className="medical-card border-primary/20 bg-primary/5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-foreground">Practice Modality</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Select the modality for this consultation
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCurrentModality('electro_homeopathy')}
+                  className={cn(
+                    'flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors',
+                    currentModality === 'electro_homeopathy'
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border/50 bg-background text-foreground hover:bg-secondary'
+                  )}
+                >
+                  <Beaker className="h-4 w-4" />
+                  Electro Homeopathy
+                </button>
+                <button
+                  onClick={() => setCurrentModality('classical_homeopathy')}
+                  className={cn(
+                    'flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors',
+                    currentModality === 'classical_homeopathy'
+                      ? 'border-primary bg-primary text-primary-foreground'
+                      : 'border-border/50 bg-background text-foreground hover:bg-secondary'
+                  )}
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Classical Homeopathy
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Patient Selection - Shared for both modalities */}
+        <div className="medical-card">
             <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-foreground">
               <User className="h-5 w-5 text-primary" />
               Select Patient
@@ -571,6 +706,51 @@ export default function Consultation() {
             )}
           </div>
 
+        {/* Classical Homeopathy Consultation */}
+        {currentModality === 'classical_homeopathy' && selectedPatientId && (
+          <ClassicalHomeopathyConsultation
+            patientId={selectedPatientId}
+            symptoms={symptoms}
+            onCaseRecordCreated={(caseRecordId) => {
+              console.log('Case record created:', caseRecordId);
+            }}
+            onPrescriptionCreated={async (prescriptionId) => {
+              console.log('Prescription created:', prescriptionId);
+              // Refresh patient history
+              try {
+                const response = await prescriptionApi.getPrescriptions();
+                if (response.success && response.data) {
+                  const patientPrescriptions = response.data
+                    .filter((rx) => {
+                      const rxPatientId = typeof rx.patientId === 'string' 
+                        ? rx.patientId 
+                        : rx.patientId?._id;
+                      return rxPatientId === selectedPatientId;
+                    })
+                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                    .slice(0, 5)
+                    .map((rx) => ({
+                      id: rx._id,
+                      prescription_no: rx.prescriptionNo,
+                      created_at: rx.createdAt,
+                      symptoms: (rx.symptoms || []).map((s: any) => ({ name: s.name || s.symptomName || '' })),
+                      medicines: (rx.medicines || []).map((m: any) => ({ name: m.name || m.medicineName || '' })),
+                    }));
+                  
+                  setPatientHistory(patientPrescriptions);
+                }
+              } catch (error) {
+                console.error('Error fetching patient history:', error);
+              }
+            }}
+          />
+        )}
+
+        {/* Electro Homeopathy Consultation (Existing) */}
+        {currentModality === 'electro_homeopathy' && selectedPatientId && (
+          <div className="grid gap-6 lg:grid-cols-3">
+            {/* Left Panel - Patient & Symptoms */}
+            <div className="lg:col-span-2 space-y-6">
           {/* Vitals Recording */}
           {selectedPatientId && (
             <div className="medical-card">
@@ -982,6 +1162,8 @@ export default function Consultation() {
             )}
           </div>
         </div>
+      </div>
+        )}
       </div>
     </MainLayout>
   );

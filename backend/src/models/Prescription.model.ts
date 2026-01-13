@@ -12,8 +12,13 @@ export interface PrescriptionMedicine {
   medicineId: string;
   name: string;
   category: string;
-  dosage: string;
-  duration: string;
+  modality: 'electro_homeopathy' | 'classical_homeopathy'; // NEW
+  // Electro Homeopathy
+  dosage?: string;
+  duration?: string;
+  // Classical Homeopathy
+  potency?: string; // NEW (6C, 30C, 200C, etc.)
+  repetition?: string; // NEW (TDS, BD, OD, etc.)
   instructions?: string;
 }
 
@@ -21,6 +26,7 @@ export interface IPrescription extends Document {
   prescriptionNo: string; // Auto-generated like RX-2024-001
   patientId: mongoose.Types.ObjectId;
   doctorId: mongoose.Types.ObjectId;
+  modality: 'electro_homeopathy' | 'classical_homeopathy'; // NEW - REQUIRED
   symptoms: PrescriptionSymptom[];
   medicines: PrescriptionMedicine[];
   diagnosis?: string;
@@ -49,6 +55,12 @@ const prescriptionSchema = new Schema<IPrescription>(
       ref: 'Doctor',
       required: true,
     },
+    modality: {
+      type: String,
+      required: [true, 'Modality is required'],
+      enum: ['electro_homeopathy', 'classical_homeopathy'],
+      default: 'electro_homeopathy',
+    },
     symptoms: [
       {
         symptomId: { type: String, required: true },
@@ -71,8 +83,17 @@ const prescriptionSchema = new Schema<IPrescription>(
         medicineId: { type: String, required: true },
         name: { type: String, required: true },
         category: { type: String, required: true },
-        dosage: { type: String, required: true },
-        duration: { type: String, required: true },
+        modality: {
+          type: String,
+          required: true,
+          enum: ['electro_homeopathy', 'classical_homeopathy'],
+        },
+        // Electro Homeopathy
+        dosage: { type: String },
+        duration: { type: String },
+        // Classical Homeopathy
+        potency: { type: String },
+        repetition: { type: String },
         instructions: { type: String },
       },
     ],

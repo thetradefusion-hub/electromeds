@@ -62,14 +62,16 @@ const ActivityFeed = () => {
               const patientName = typeof rx.patientId === 'object' && rx.patientId?.name 
                 ? rx.patientId.name 
                 : 'Unknown';
+              const modality = (rx as any).modality || 'electro_homeopathy';
               items.push({
                 id: `prescription-${rx._id}`,
                 type: 'prescription',
-                title: 'Prescription Created',
+                title: `Prescription Created (${modality === 'electro_homeopathy' ? 'Electro' : 'Classical'})`,
                 description: `${rx.prescriptionNo} for ${patientName}`,
                 timestamp: rx.createdAt,
                 metadata: {
                   patientName,
+                  modality,
                 },
               });
             });

@@ -7,6 +7,12 @@ export interface Symptom {
   description?: string;
   isGlobal: boolean;
   doctorId?: string;
+  modality?: 'electro_homeopathy' | 'classical_homeopathy';
+  code?: string;
+  synonyms?: string[];
+  location?: string;
+  sensation?: string;
+  modalities?: string[];
   createdAt: string;
   updatedAt: string;
 }

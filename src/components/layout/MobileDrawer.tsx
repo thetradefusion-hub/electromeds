@@ -48,7 +48,6 @@ const doctorNavItems: NavItem[] = [
   { icon: FileText, labelKey: 'nav.prescriptions', path: '/prescriptions', roles: ['doctor'] },
   { icon: HeartPulse, labelKey: 'nav.symptoms', path: '/symptoms', roles: ['doctor'] },
   { icon: Pill, labelKey: 'nav.medicines', path: '/medicines', roles: ['doctor'] },
-  { icon: BookOpen, labelKey: 'nav.rulesEngine', path: '/rules', roles: ['doctor'] },
   { icon: Activity, labelKey: 'nav.analytics', path: '/analytics', roles: ['doctor'] },
 ];
 

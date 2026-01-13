@@ -173,14 +173,41 @@ export const createPrescription = async (
       doctorIdToUse = doctor._id;
     }
 
+    // Get doctor to determine modality
+    const doctor = await Doctor.findById(doctorIdToUse);
+    if (!doctor) {
+      throw new CustomError('Doctor not found', 404);
+    }
+
+    // Determine prescription modality
+    let prescriptionModality: 'electro_homeopathy' | 'classical_homeopathy' = 'electro_homeopathy';
+    if (doctor.modality === 'classical_homeopathy') {
+      prescriptionModality = 'classical_homeopathy';
+    } else if (doctor.modality === 'both') {
+      prescriptionModality = doctor.preferredModality || 'electro_homeopathy';
+    }
+
+    // Ensure all medicines have modality set
+    const medicinesWithModality = (medicines || []).map((med: any) => ({
+      ...med,
+      modality: med.modality || prescriptionModality,
+    }));
+
+    console.log('[createPrescription] Creating prescription:', {
+      prescriptionModality,
+      medicinesCount: medicinesWithModality.length,
+      medicines: medicinesWithModality.map((m: any) => ({ name: m.name, modality: m.modality })),
+    });
+
     const prescriptionNo = await generatePrescriptionNo();
 
     const prescription = await Prescription.create({
       prescriptionNo,
       patientId,
       doctorId: doctorIdToUse,
+      modality: prescriptionModality,
       symptoms: symptoms || [],
-      medicines: medicines || [],
+      medicines: medicinesWithModality,
       diagnosis: diagnosis || undefined,
       advice: advice || undefined,
       followUpDate: followUpDate ? new Date(followUpDate) : undefined,

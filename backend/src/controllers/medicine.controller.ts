@@ -20,9 +20,33 @@ export const getMedicines = async (
     const doctor = await Doctor.findOne({ userId });
     const doctorId = doctor?._id;
 
-    // Get global medicines and doctor-specific medicines
+    // Determine which modality to filter by
+    let modalityFilter: string[] = [];
+    if (doctor) {
+      if (doctor.modality === 'electro_homeopathy') {
+        modalityFilter = ['electro_homeopathy'];
+      } else if (doctor.modality === 'classical_homeopathy') {
+        modalityFilter = ['classical_homeopathy'];
+      } else if (doctor.modality === 'both') {
+        // If both, use preferredModality, or show both if not set
+        if (doctor.preferredModality) {
+          modalityFilter = [doctor.preferredModality];
+        } else {
+          modalityFilter = ['electro_homeopathy', 'classical_homeopathy'];
+        }
+      } else {
+        // Default to electro_homeopathy if modality is not set
+        modalityFilter = ['electro_homeopathy'];
+      }
+    } else {
+      // If no doctor profile, default to electro_homeopathy
+      modalityFilter = ['electro_homeopathy'];
+    }
+
+    // Get global medicines and doctor-specific medicines filtered by modality
     const medicines = await Medicine.find({
       $or: [{ isGlobal: true }, { doctorId }],
+      modality: { $in: modalityFilter },
     })
       .sort({ name: 1 })
       .lean();

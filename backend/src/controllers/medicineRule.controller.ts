@@ -1,4 +1,5 @@
 import { Response, NextFunction } from 'express';
+import mongoose from 'mongoose';
 import { AuthRequest } from '../middleware/auth.middleware.js';
 import MedicineRule from '../models/MedicineRule.model.js';
 import Doctor from '../models/Doctor.model.js';
@@ -19,9 +20,33 @@ export const getMedicineRules = async (
     const doctor = await Doctor.findOne({ userId });
     const doctorId = doctor?._id;
 
-    // Get global rules and doctor-specific rules
+    // Determine which modality to filter by
+    let modalityFilter: string[] = [];
+    if (doctor) {
+      if (doctor.modality === 'electro_homeopathy') {
+        modalityFilter = ['electro_homeopathy'];
+      } else if (doctor.modality === 'classical_homeopathy') {
+        modalityFilter = ['classical_homeopathy'];
+      } else if (doctor.modality === 'both') {
+        // If both, use preferredModality, or show both if not set
+        if (doctor.preferredModality) {
+          modalityFilter = [doctor.preferredModality];
+        } else {
+          modalityFilter = ['electro_homeopathy', 'classical_homeopathy'];
+        }
+      } else {
+        // Default to electro_homeopathy if modality is not set
+        modalityFilter = ['electro_homeopathy'];
+      }
+    } else {
+      // If no doctor profile, default to electro_homeopathy
+      modalityFilter = ['electro_homeopathy'];
+    }
+
+    // Get global rules and doctor-specific rules filtered by modality
     const rules = await MedicineRule.find({
       $or: [{ isGlobal: true }, { doctorId }],
+      modality: { $in: modalityFilter },
     })
       .sort({ priority: -1, createdAt: -1 })
       .lean();
@@ -201,7 +226,7 @@ export const deleteMedicineRule = async (
 
 /**
  * @route   POST /api/rules/suggest
- * @desc    Get medicine suggestions based on symptoms
+ * @desc    Get medicine suggestions based on symptoms (ENHANCED with intelligent scoring)
  */
 export const suggestMedicines = async (
   req: AuthRequest,
@@ -223,19 +248,110 @@ export const suggestMedicines = async (
     const doctor = await Doctor.findOne({ userId });
     const doctorId = doctor?._id;
 
-    // Find matching rules
+    // Determine which modality to filter by
+    let modalityFilter: string[] = [];
+    if (doctor) {
+      if (doctor.modality === 'electro_homeopathy') {
+        modalityFilter = ['electro_homeopathy'];
+      } else if (doctor.modality === 'classical_homeopathy') {
+        modalityFilter = ['classical_homeopathy'];
+      } else if (doctor.modality === 'both') {
+        if (doctor.preferredModality) {
+          modalityFilter = [doctor.preferredModality];
+        } else {
+          modalityFilter = ['electro_homeopathy', 'classical_homeopathy'];
+        }
+      } else {
+        modalityFilter = ['electro_homeopathy'];
+      }
+    } else {
+      modalityFilter = ['electro_homeopathy'];
+    }
+
+    // Use enhanced rule engine for Electro Homeopathy
+    if (modalityFilter.includes('electro_homeopathy') && modalityFilter.length === 1) {
+      // Import here to avoid circular dependency
+      const ElectroHomeopathyRuleEngine = (await import('../services/electroHomeopathyRuleEngine.service.js')).default;
+      const ruleEngine = new ElectroHomeopathyRuleEngine();
+      
+      const result = await ruleEngine.suggestMedicines(symptomIds, doctorId);
+      
+      // Convert to expected format
+      const suggestedMedicineIds = result.suggestions.map((s) => s.medicineId);
+      const rules = result.suggestions.flatMap((s) => s.matchedRules);
+
+      res.json({
+        success: true,
+        data: {
+          rules: rules.slice(0, 10),
+          suggestedMedicineIds,
+          scoredMedicines: result.suggestions, // Include scored medicines for frontend
+          summary: result.summary,
+        },
+      });
+      return;
+    }
+
+    // Fallback to original logic for Classical Homeopathy or mixed modalities
+    // Convert symptomIds to ObjectIds if they're strings
+    const symptomObjectIds = symptomIds.map((id) => {
+      try {
+        return typeof id === 'string' ? new mongoose.Types.ObjectId(id) : id;
+      } catch {
+        return id; // Keep as is if not a valid ObjectId
+      }
+    });
+
+    // Find matching rules filtered by modality
+    // A rule matches if ANY of the provided symptomIds is in the rule's symptomIds array
     const rules = await MedicineRule.find({
       $or: [{ isGlobal: true }, { doctorId }],
-      symptomIds: { $in: symptomIds },
+      symptomIds: { $in: symptomObjectIds },
+      modality: { $in: modalityFilter },
     })
       .sort({ priority: -1 })
       .lean();
 
+    console.log(`[suggestMedicines] Query details:`, {
+      symptomIdsCount: symptomIds.length,
+      symptomObjectIdsCount: symptomObjectIds.length,
+      doctorId: doctorId?.toString() || 'none',
+      modalityFilter: modalityFilter,
+      rulesFound: rules.length,
+    });
+
     // Extract unique medicine IDs from matching rules
     const medicineIds = new Set<string>();
     rules.forEach((rule) => {
-      rule.medicineIds.forEach((id) => medicineIds.add(id));
+      if (rule.medicineIds && rule.medicineIds.length > 0) {
+        rule.medicineIds.forEach((id) => {
+          const idStr = id.toString();
+          medicineIds.add(idStr);
+        });
+      }
     });
+
+    console.log(`[suggestMedicines] Extracted ${medicineIds.size} unique medicine IDs from ${rules.length} rules`);
+    
+    if (rules.length === 0) {
+      console.log(`[suggestMedicines] No rules found. Checking if any rules exist with modality filter...`);
+      const totalRulesWithModality = await MedicineRule.countDocuments({
+        $or: [{ isGlobal: true }, { doctorId }],
+        modality: { $in: modalityFilter },
+      });
+      console.log(`[suggestMedicines] Total rules with modality ${modalityFilter.join(', ')}: ${totalRulesWithModality}`);
+      
+      if (totalRulesWithModality > 0) {
+        const sampleRule = await MedicineRule.findOne({
+          $or: [{ isGlobal: true }, { doctorId }],
+          modality: { $in: modalityFilter },
+        }).select('symptomIds').lean();
+        if (sampleRule) {
+          console.log(`[suggestMedicines] Sample rule symptomIds:`, sampleRule.symptomIds?.slice(0, 3));
+          console.log(`[suggestMedicines] Requested symptomIds:`, symptomIds.slice(0, 3));
+        }
+      }
+    }
 
     res.json({
       success: true,

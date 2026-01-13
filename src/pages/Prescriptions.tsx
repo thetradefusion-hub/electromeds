@@ -308,7 +308,17 @@ export default function Prescriptions() {
                       <div className="flex-1">
                         <p className="text-sm font-medium text-foreground">{med.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {med.dosage} • {med.duration}
+                          {med.modality === 'classical_homeopathy' ? (
+                            <>
+                              {med.potency && `${med.potency}`}
+                              {med.repetition && ` • ${med.repetition}`}
+                            </>
+                          ) : (
+                            <>
+                              {med.dosage && `${med.dosage}`}
+                              {med.duration && ` • ${med.duration}`}
+                            </>
+                          )}
                         </p>
                       </div>
                     </div>

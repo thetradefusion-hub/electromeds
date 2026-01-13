@@ -7,6 +7,8 @@ export interface IDoctor extends Document {
   specialization: string;
   clinicName?: string;
   clinicAddress?: string;
+  modality: 'electro_homeopathy' | 'classical_homeopathy' | 'both'; // NEW
+  preferredModality?: 'electro_homeopathy' | 'classical_homeopathy'; // NEW (if both)
   createdAt: Date;
   updatedAt: Date;
 }
@@ -44,6 +46,15 @@ const doctorSchema = new Schema<IDoctor>(
     clinicAddress: {
       type: String,
       trim: true,
+    },
+    modality: {
+      type: String,
+      enum: ['electro_homeopathy', 'classical_homeopathy', 'both'],
+      default: 'electro_homeopathy',
+    },
+    preferredModality: {
+      type: String,
+      enum: ['electro_homeopathy', 'classical_homeopathy'],
     },
   },
   {

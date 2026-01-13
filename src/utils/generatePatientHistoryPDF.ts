@@ -31,8 +31,13 @@ interface PrescriptionSymptom {
 interface PrescriptionMedicine {
   name: string;
   category: string;
-  dosage: string;
-  duration: string;
+  modality?: 'electro_homeopathy' | 'classical_homeopathy';
+  // Electro Homeopathy
+  dosage?: string;
+  duration?: string;
+  // Classical Homeopathy
+  potency?: string;
+  repetition?: string;
   instructions?: string;
 }
 
@@ -220,7 +225,21 @@ export const generatePatientHistoryPDF = (
         doc.setFont('helvetica', 'normal');
         rx.medicines.forEach((med) => {
           checkPageBreak(10);
-          doc.text(`• ${med.name} - ${med.dosage} for ${med.duration}`, margin + 8, yPos);
+          const isClassical = med.modality === 'classical_homeopathy';
+          let medicineText: string;
+          
+          if (isClassical && med.potency && med.repetition) {
+            // Classical Homeopathy: Potency and Repetition
+            medicineText = `• ${med.name} - ${med.potency}, ${med.repetition}`;
+          } else if (med.dosage && med.duration) {
+            // Electro Homeopathy: Dosage and Duration
+            medicineText = `• ${med.name} - ${med.dosage} for ${med.duration}`;
+          } else {
+            // Fallback: just name
+            medicineText = `• ${med.name}`;
+          }
+          
+          doc.text(medicineText, margin + 8, yPos);
           yPos += 4;
         });
         yPos += 2;

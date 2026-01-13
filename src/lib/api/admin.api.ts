@@ -37,6 +37,25 @@ export interface PlatformStats {
   totalPatients: number;
   totalPrescriptions: number;
   totalAppointments: number;
+  // Classical Homeopathy
+  totalCaseRecords?: number;
+  totalRemedies?: number;
+  totalRubrics?: number;
+  // Global symptoms and medicines
+  totalGlobalSymptoms?: number;
+  totalGlobalMedicines?: number;
+  totalSymptoms?: number;
+  totalMedicines?: number;
+  // Modality breakdown
+  prescriptionsByModality?: {
+    electro_homeopathy: number;
+    classical_homeopathy: number;
+  };
+  doctorsByModality?: {
+    electro_homeopathy: number;
+    classical_homeopathy: number;
+    both: number;
+  };
 }
 
 export interface AdminSubscription {

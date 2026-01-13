@@ -105,3 +105,14 @@ export {
   type TicketMessage,
 } from './supportTicket.api';
 
+// Classical Homeopathy API
+export {
+  classicalHomeopathyApi,
+  type StructuredCaseInput,
+  type RemedySuggestion,
+  type SuggestionResponse,
+  type DoctorDecision,
+  type OutcomeUpdate,
+  type RemedyStatistics,
+  type SymptomRemedyPattern,
+} from './classicalHomeopathy.api';

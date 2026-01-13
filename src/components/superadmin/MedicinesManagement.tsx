@@ -328,7 +328,7 @@ const MedicinesManagement = () => {
               <TableBody>
                 {filteredMedicines?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                       No medicines found. Add your first global medicine.
                     </TableCell>
                   </TableRow>
@@ -338,6 +338,20 @@ const MedicinesManagement = () => {
                       <TableCell className="font-medium">{medicine.name}</TableCell>
                       <TableCell>
                         <Badge variant="secondary">{medicine.category}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge 
+                          variant={
+                            (medicine as any).modality === 'electro_homeopathy' ? 'default' :
+                            (medicine as any).modality === 'classical_homeopathy' ? 'secondary' :
+                            'outline'
+                          }
+                          className="text-xs"
+                        >
+                          {(medicine as any).modality === 'electro_homeopathy' ? 'Electro' :
+                           (medicine as any).modality === 'classical_homeopathy' ? 'Classical' :
+                           'Both/None'}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-muted-foreground">
                         {medicine.defaultDosage || '-'}

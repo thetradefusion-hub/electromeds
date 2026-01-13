@@ -3,6 +3,8 @@ import mongoose, { Document, Schema } from 'mongoose';
 export interface IMedicine extends Document {
   name: string;
   category: string;
+  modality: 'electro_homeopathy' | 'classical_homeopathy'; // NEW - REQUIRED
+  series?: string; // NEW (for Electro: S1, C1, GE, YE, etc.)
   indications?: string;
   defaultDosage?: string;
   contraIndications?: string;
@@ -23,6 +25,16 @@ const medicineSchema = new Schema<IMedicine>(
     category: {
       type: String,
       required: [true, 'Category is required'],
+      trim: true,
+    },
+    modality: {
+      type: String,
+      required: [true, 'Modality is required'],
+      enum: ['electro_homeopathy', 'classical_homeopathy'],
+      default: 'electro_homeopathy',
+    },
+    series: {
+      type: String,
       trim: true,
     },
     indications: {
@@ -59,6 +71,9 @@ const medicineSchema = new Schema<IMedicine>(
 medicineSchema.index({ doctorId: 1, isGlobal: 1 });
 medicineSchema.index({ name: 1 });
 medicineSchema.index({ category: 1 });
+medicineSchema.index({ modality: 1, isGlobal: 1 });
+medicineSchema.index({ modality: 1, doctorId: 1 });
+medicineSchema.index({ modality: 1, category: 1 });
 
 const Medicine = mongoose.model<IMedicine>('Medicine', medicineSchema);
 

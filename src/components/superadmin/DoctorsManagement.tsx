@@ -63,6 +63,8 @@ const DoctorsManagement = () => {
           clinicAddress: d.clinicAddress,
           role: d.role,
           isActive: d.isActive,
+          modality: d.modality || 'electro_homeopathy',
+          preferredModality: d.preferredModality,
           createdAt: d.createdAt,
         }));
       }
@@ -322,6 +324,7 @@ const DoctorsManagement = () => {
                     <TableHead className="font-semibold">Contact</TableHead>
                     <TableHead className="font-semibold">Registration</TableHead>
                     <TableHead className="font-semibold">Specialization</TableHead>
+                    <TableHead className="font-semibold">Modality</TableHead>
                     <TableHead className="font-semibold">Clinic</TableHead>
                     <TableHead className="font-semibold">Status</TableHead>
                     <TableHead className="font-semibold">Joined</TableHead>

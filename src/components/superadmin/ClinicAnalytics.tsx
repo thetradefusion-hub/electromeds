@@ -21,8 +21,8 @@ const ClinicAnalytics = () => {
         adminApi.getAllDoctors(),
         patientApi.getPatients(),
         prescriptionApi.getPrescriptions(),
-        symptomApi.getSymptoms(),
-        medicineApi.getMedicines(),
+        adminApi.getGlobalSymptoms(), // Use admin API for all global symptoms
+        adminApi.getGlobalMedicines(), // Use admin API for all global medicines
       ]);
 
       const today = startOfDay(new Date());
@@ -32,6 +32,7 @@ const ClinicAnalytics = () => {
       const patients = patientsResult.data?.data || [];
       const prescriptions = prescriptionsResult.data?.data || [];
       const doctors = doctorsResult.data?.data || [];
+      // adminApi.getGlobalSymptoms() and getGlobalMedicines() return { success, data, count }
       const symptoms = symptomsResult.data?.data || [];
       const medicines = medicinesResult.data?.data || [];
 
@@ -74,9 +75,16 @@ const ClinicAnalytics = () => {
       const todayPatientsCount = patients.filter((p: any) => new Date(p.createdAt) >= today).length || 0;
       const todayPrescriptionsCount = prescriptions.filter((p: any) => new Date(p.createdAt) >= today).length || 0;
 
-      // Global symptoms and medicines count
-      const globalSymptomsCount = symptoms.filter((s: any) => s.isGlobal).length || 0;
-      const globalMedicinesCount = medicines.filter((m: any) => m.isGlobal).length || 0;
+      // Global symptoms and medicines count (already filtered by adminApi, but use platformStats for accuracy)
+      const globalSymptomsCount = platformStats.data?.totalGlobalSymptoms || symptoms.length || 0;
+      const globalMedicinesCount = platformStats.data?.totalGlobalMedicines || medicines.length || 0;
+
+      // Modality breakdown
+      const electroPrescriptions = prescriptions.filter((p: any) => p.modality === 'electro_homeopathy').length || 0;
+      const classicalPrescriptions = prescriptions.filter((p: any) => p.modality === 'classical_homeopathy').length || 0;
+      const electroDoctors = doctors.filter((d: any) => d.modality === 'electro_homeopathy').length || 0;
+      const classicalDoctors = doctors.filter((d: any) => d.modality === 'classical_homeopathy').length || 0;
+      const bothModalityDoctors = doctors.filter((d: any) => d.modality === 'both').length || 0;
 
       return {
         totalDoctors: platformStats.data?.totalDoctors || doctors.length || 0,
@@ -86,6 +94,16 @@ const ClinicAnalytics = () => {
         todayPrescriptions: todayPrescriptionsCount,
         globalSymptoms: globalSymptomsCount,
         globalMedicines: globalMedicinesCount,
+        // Classical Homeopathy stats
+        totalCaseRecords: platformStats.data?.totalCaseRecords || 0,
+        totalRemedies: platformStats.data?.totalRemedies || 0,
+        totalRubrics: platformStats.data?.totalRubrics || 0,
+        // Modality breakdown
+        electroPrescriptions,
+        classicalPrescriptions,
+        electroDoctors,
+        classicalDoctors,
+        bothModalityDoctors,
         dailyPatients,
         dailyPrescriptions,
         thisWeekPatients,
@@ -102,6 +120,10 @@ const ClinicAnalytics = () => {
           { name: 'Female', value: femalePatients },
           { name: 'Other', value: otherPatients },
         ].filter(g => g.value > 0),
+        modalityDistribution: [
+          { name: 'Electro Homeopathy', value: electroPrescriptions },
+          { name: 'Classical Homeopathy', value: classicalPrescriptions },
+        ].filter(m => m.value > 0),
       };
     },
   });
@@ -155,6 +177,38 @@ const ClinicAnalytics = () => {
       color: 'text-accent',
       bgColor: 'bg-accent/10',
     },
+    {
+      title: 'Case Records',
+      value: stats?.totalCaseRecords || 0,
+      icon: FileText,
+      description: 'Classical Homeopathy',
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-500/10',
+    },
+    {
+      title: 'Remedies',
+      value: stats?.totalRemedies || 0,
+      icon: Pill,
+      description: 'Classical Homeopathy',
+      color: 'text-indigo-600',
+      bgColor: 'bg-indigo-500/10',
+    },
+    {
+      title: 'Electro Prescriptions',
+      value: stats?.electroPrescriptions || 0,
+      icon: FileText,
+      description: 'Electro Homeopathy',
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-500/10',
+    },
+    {
+      title: 'Classical Prescriptions',
+      value: stats?.classicalPrescriptions || 0,
+      icon: FileText,
+      description: 'Classical Homeopathy',
+      color: 'text-purple-600',
+      bgColor: 'bg-purple-500/10',
+    },
   ];
 
   if (isLoading) {
@@ -168,7 +222,7 @@ const ClinicAnalytics = () => {
   return (
     <div className="space-y-6">
       {/* Enhanced Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {analyticsCards.map((card, index) => {
           const gradients = [
             'from-blue-500/10 to-cyan-500/10 border-blue-500/20',

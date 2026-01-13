@@ -34,7 +34,7 @@ const DEFAULT_CATEGORIES = [
 ];
 
 export default function Medicines() {
-  const { medicines, loading, categories, createMedicine, updateMedicine, deleteMedicine, doctorId } = useMedicines();
+  const { medicines, remedies, loading, categories, showModality, doctorModality, createMedicine, updateMedicine, deleteMedicine, doctorId } = useMedicines();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | 'all'>('all');
@@ -53,12 +53,20 @@ export default function Medicines() {
 
   const allCategories = [...new Set([...DEFAULT_CATEGORIES, ...categories])].sort();
 
-  const filteredMedicines = medicines.filter((medicine) => {
+  const filteredMedicines = medicines.filter((item) => {
+    const isRemedy = 'modality' in item && item.modality === 'classical_homeopathy';
+    const remedy = isRemedy ? remedies.find(r => r.id === item.id) : null;
+    
+    // Search in name, indications, or clinical indications
     const matchesSearch =
-      medicine.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (medicine.indications?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
+      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.indications?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false) ||
+      ((isRemedy && remedy?.clinicalIndications?.some(ind => 
+        ind.toLowerCase().includes(searchQuery.toLowerCase())
+      )) ?? false);
+    
     const matchesCategory =
-      selectedCategory === 'all' || medicine.category === selectedCategory;
+      selectedCategory === 'all' || item.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
@@ -108,13 +116,30 @@ export default function Medicines() {
     }
   };
 
-  const canEdit = (medicine: Medicine) => {
-    return !medicine.is_global && medicine.doctor_id === doctorId;
+  // Type guard to check if item is a remedy
+  const isRemedyItem = (item: Medicine | Remedy): item is Remedy => {
+    return 'modality' in item && item.modality === 'classical_homeopathy';
   };
+
+  const canEdit = (item: Medicine | Remedy) => {
+    return !item.is_global && item.doctor_id === doctorId;
+  };
+
+  const isClassical = showModality === 'classical_homeopathy';
+  const isBoth = doctorModality === 'both';
 
   if (loading) {
     return (
-      <MainLayout title="Medicine Library" subtitle="Electro Homoeopathy medicine database">
+      <MainLayout 
+        title={isClassical ? "Remedy Library" : isBoth ? "Medicine & Remedy Library" : "Medicine Library"} 
+        subtitle={
+          isClassical 
+            ? "Classical Homeopathy remedies database" 
+            : isBoth 
+            ? "Electro Homeopathy medicines & Classical Homeopathy remedies" 
+            : "Electro Homeopathy medicine database"
+        }
+      >
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
@@ -123,19 +148,28 @@ export default function Medicines() {
   }
 
   return (
-    <MainLayout title="Medicine Library" subtitle="Electro Homoeopathy medicine database">
+    <MainLayout 
+      title={isClassical ? "Remedy Library" : isBoth ? "Medicine & Remedy Library" : "Medicine Library"} 
+      subtitle={
+        isClassical 
+          ? "Classical Homeopathy remedies database" 
+          : isBoth 
+          ? "Electro Homeopathy medicines & Classical Homeopathy remedies" 
+          : "Electro Homeopathy medicine database"
+      }
+    >
       {/* Actions Bar */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-1 items-center gap-3">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search medicines by name or indication..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="medical-input pl-10"
-            />
+          <input
+            type="text"
+            placeholder={isClassical ? "Search remedies by name or indication..." : isBoth ? "Search medicines or remedies..." : "Search medicines by name or indication..."}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="medical-input pl-10"
+          />
           </div>
           <div className="relative">
             <Filter className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -153,17 +187,21 @@ export default function Medicines() {
             </select>
           </div>
         </div>
-        <button onClick={openAddForm} className="medical-btn-primary">
-          <Plus className="h-4 w-4" />
-          Add Medicine
-        </button>
+        {!isClassical && (
+          <button onClick={openAddForm} className="medical-btn-primary">
+            <Plus className="h-4 w-4" />
+            Add Medicine
+          </button>
+        )}
       </div>
 
       {/* Stats */}
       <div className="mb-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="medical-card p-4 text-center">
           <p className="text-2xl font-bold text-primary">{medicines.length}</p>
-          <p className="text-sm text-muted-foreground">Total Medicines</p>
+          <p className="text-sm text-muted-foreground">
+            {isClassical ? 'Total Remedies' : isBoth ? 'Total Items' : 'Total Medicines'}
+          </p>
         </div>
         <div className="medical-card p-4 text-center">
           <p className="text-2xl font-bold text-accent">{medicines.filter(m => m.is_global).length}</p>
@@ -179,90 +217,162 @@ export default function Medicines() {
         </div>
       </div>
 
-      {/* Medicines Grid */}
+      {/* Medicines/Remedies Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {filteredMedicines.map((medicine, index) => (
-          <div
-            key={medicine.id}
-            className="medical-card animate-fade-in"
-            style={{ animationDelay: `${index * 30}ms` }}
-          >
-            <div className="mb-4 flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl gradient-primary">
-                  <Pill className="h-6 w-6 text-primary-foreground" />
+        {filteredMedicines.map((item, index) => {
+          const isRemedy = isRemedyItem(item);
+          const remedy = isRemedy ? (item as Remedy) : null;
+          const medicine = !isRemedy ? (item as Medicine) : null;
+          
+          return (
+            <div
+              key={item.id}
+              className="medical-card animate-fade-in"
+              style={{ animationDelay: `${index * 30}ms` }}
+            >
+              <div className="mb-4 flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl gradient-primary">
+                    <Pill className="h-6 w-6 text-primary-foreground" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground">{item.name}</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="medical-badge-primary">{item.category}</span>
+                      {isRemedy && (
+                        <span className="medical-badge bg-blue-500/10 text-blue-600 text-xs">Remedy</span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-semibold text-foreground">{medicine.name}</h3>
-                  <span className="medical-badge-primary">{medicine.category}</span>
+                <div className="flex items-center gap-1">
+                  {item.is_global ? (
+                    <span className="medical-badge bg-secondary text-muted-foreground">Global</span>
+                  ) : (
+                    <span className="medical-badge bg-accent/10 text-accent">Custom</span>
+                  )}
                 </div>
               </div>
-              <div className="flex items-center gap-1">
-                {medicine.is_global ? (
-                  <span className="medical-badge bg-secondary text-muted-foreground">Global</span>
+
+              <div className="mb-4 space-y-3">
+                {/* Indications */}
+                {!isRemedy && medicine?.indications && (
+                  <div>
+                    <div className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                      <Info className="h-3.5 w-3.5" />
+                      Indications
+                    </div>
+                    <p className="text-sm text-foreground">{medicine.indications}</p>
+                  </div>
+                )}
+
+                {isRemedy && remedy?.indications && (
+                  <div>
+                    <div className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                      <Info className="h-3.5 w-3.5" />
+                      Indications
+                    </div>
+                    <p className="text-sm text-foreground">{remedy.indications}</p>
+                  </div>
+                )}
+
+                {/* Clinical Indications (for remedies) */}
+                {isRemedy && remedy?.clinicalIndications && remedy.clinicalIndications.length > 0 && (
+                  <div>
+                    <div className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                      <Info className="h-3.5 w-3.5" />
+                      Clinical Indications
+                    </div>
+                    <p className="text-sm text-foreground">
+                      {remedy.clinicalIndications.slice(0, 3).join(', ')}
+                      {remedy.clinicalIndications.length > 3 && '...'}
+                    </p>
+                  </div>
+                )}
+
+                {/* Supported Potencies (for remedies) */}
+                {isRemedy && remedy?.supportedPotencies && remedy.supportedPotencies.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Supported Potencies</p>
+                    <p className="text-sm font-medium text-foreground">
+                      {remedy.supportedPotencies.join(', ')}
+                    </p>
+                  </div>
+                )}
+
+                {/* Default Dosage */}
+                {!isRemedy && medicine?.default_dosage && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Default Dosage</p>
+                    <p className="text-sm font-medium text-foreground">{medicine.default_dosage}</p>
+                  </div>
+                )}
+
+                {isRemedy && remedy?.defaultDosage && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground">Default Dosage</p>
+                    <p className="text-sm font-medium text-foreground">{remedy.defaultDosage}</p>
+                  </div>
+                )}
+
+                {/* Contra-indications */}
+                {!isRemedy && medicine?.contra_indications && (
+                  <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-2">
+                    <div className="flex items-center gap-1 text-xs font-medium text-destructive">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      Contra-indications
+                    </div>
+                    <p className="mt-1 text-xs text-foreground">{medicine.contra_indications}</p>
+                  </div>
+                )}
+
+                {isRemedy && remedy?.contraIndications && (
+                  <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-2">
+                    <div className="flex items-center gap-1 text-xs font-medium text-destructive">
+                      <AlertTriangle className="h-3.5 w-3.5" />
+                      Contra-indications
+                    </div>
+                    <p className="mt-1 text-xs text-foreground">{remedy.contraIndications}</p>
+                  </div>
+                )}
+
+                {/* Notes */}
+                {!isRemedy && medicine?.notes && (
+                  <p className="text-xs text-muted-foreground italic">{medicine.notes}</p>
+                )}
+
+                {isRemedy && remedy?.notes && (
+                  <p className="text-xs text-muted-foreground italic">{remedy.notes}</p>
+                )}
+              </div>
+
+              <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
+                {canEdit(item) && !isRemedy ? (
+                  <>
+                    <button
+                      onClick={() => openEditForm(item as Medicine)}
+                      className="flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                    >
+                      <Edit className="h-4 w-4" />
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => setDeleteId(item.id)}
+                      className="flex items-center gap-1 text-sm font-medium text-destructive hover:text-destructive/80 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Delete
+                    </button>
+                  </>
                 ) : (
-                  <span className="medical-badge bg-accent/10 text-accent">Custom</span>
+                  <span className="text-xs text-muted-foreground">
+                    {isRemedy ? 'Remedies are read-only' : 'Read only'}
+                  </span>
                 )}
               </div>
             </div>
-
-            <div className="mb-4 space-y-3">
-              {medicine.indications && (
-                <div>
-                  <div className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
-                    <Info className="h-3.5 w-3.5" />
-                    Indications
-                  </div>
-                  <p className="text-sm text-foreground">{medicine.indications}</p>
-                </div>
-              )}
-
-              {medicine.default_dosage && (
-                <div>
-                  <p className="text-xs font-medium text-muted-foreground">Default Dosage</p>
-                  <p className="text-sm font-medium text-foreground">{medicine.default_dosage}</p>
-                </div>
-              )}
-
-              {medicine.contra_indications && (
-                <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-2">
-                  <div className="flex items-center gap-1 text-xs font-medium text-destructive">
-                    <AlertTriangle className="h-3.5 w-3.5" />
-                    Contra-indications
-                  </div>
-                  <p className="mt-1 text-xs text-foreground">{medicine.contra_indications}</p>
-                </div>
-              )}
-
-              {medicine.notes && (
-                <p className="text-xs text-muted-foreground italic">{medicine.notes}</p>
-              )}
-            </div>
-
-            <div className="flex items-center justify-end gap-2 border-t border-border pt-4">
-              {canEdit(medicine) ? (
-                <>
-                  <button
-                    onClick={() => openEditForm(medicine)}
-                    className="flex items-center gap-1 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
-                  >
-                    <Edit className="h-4 w-4" />
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => setDeleteId(medicine.id)}
-                    className="flex items-center gap-1 text-sm font-medium text-destructive hover:text-destructive/80 transition-colors"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Delete
-                  </button>
-                </>
-              ) : (
-                <span className="text-xs text-muted-foreground">Read only</span>
-              )}
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {filteredMedicines.length === 0 && (
@@ -270,7 +380,9 @@ export default function Medicines() {
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-secondary">
             <Pill className="h-8 w-8 text-muted-foreground" />
           </div>
-          <h3 className="mb-1 text-lg font-semibold text-foreground">No medicines found</h3>
+          <h3 className="mb-1 text-lg font-semibold text-foreground">
+            {isClassical ? 'No remedies found' : isBoth ? 'No medicines or remedies found' : 'No medicines found'}
+          </h3>
           <p className="text-sm text-muted-foreground">
             Try adjusting your search or filter criteria
           </p>

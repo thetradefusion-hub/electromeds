@@ -48,6 +48,10 @@ const DoctorPerformance = () => {
           const doctorPrescriptions = prescriptionsData.filter(p => p.doctorId === doctor.id) || [];
           const thisWeekRx = doctorPrescriptions.filter(p => new Date(p.createdAt) >= last7Days);
           
+          // Modality breakdown
+          const electroRx = doctorPrescriptions.filter((p: any) => p.modality === 'electro_homeopathy').length;
+          const classicalRx = doctorPrescriptions.filter((p: any) => p.modality === 'classical_homeopathy').length;
+          
           const lastRx = doctorPrescriptions.length > 0 
             ? doctorPrescriptions.reduce((latest, rx) => 
                 new Date(rx.createdAt) > new Date(latest.createdAt) ? rx : latest
@@ -63,6 +67,10 @@ const DoctorPerformance = () => {
             totalPrescriptions: doctorPrescriptions.length,
             thisWeekPrescriptions: thisWeekRx.length,
             lastActive: lastRx?.createdAt || null,
+            // Add modality info
+            modality: (doctor as any).modality || 'electro_homeopathy',
+            electroPrescriptions: electroRx,
+            classicalPrescriptions: classicalRx,
           };
         });
 

@@ -29,8 +29,13 @@ interface PrescriptionSymptom {
 interface PrescriptionMedicine {
   name: string;
   category: string;
-  dosage: string;
-  duration: string;
+  modality?: 'electro_homeopathy' | 'classical_homeopathy';
+  // Electro Homeopathy
+  dosage?: string;
+  duration?: string;
+  // Classical Homeopathy
+  potency?: string;
+  repetition?: string;
   instructions?: string;
 }
 
@@ -327,29 +332,57 @@ export const generatePrescriptionPDF = (
     }
     yPos += 4.5;
     
-    // Dosage and Duration (compact)
+    // Medicine details (compact) - Support both Electro and Classical Homeopathy
     doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(71, 85, 105);
-    const dosageText = `Dosage: ${med.dosage}`;
-    const durationText = `Duration: ${med.duration}`;
     
-    // Check if both fit on same line
-    const dosageWidth = doc.getTextWidth(dosageText);
-    const durationWidth = doc.getTextWidth(durationText);
-    const availableWidth = contentWidth - 10;
+    const isClassical = med.modality === 'classical_homeopathy';
     
-    if (dosageWidth + durationWidth + 12 < availableWidth) {
-      // Same line
-      doc.text(dosageText, margin + 5, yPos);
-      doc.text(durationText, margin + 5 + dosageWidth + 12, yPos);
-      yPos += 4;
-    } else {
-      // Separate lines
-      doc.text(dosageText, margin + 5, yPos);
-      yPos += 4;
-      doc.text(durationText, margin + 5, yPos);
-      yPos += 4;
+    if (isClassical && med.potency && med.repetition) {
+      // Classical Homeopathy: Potency and Repetition
+      const potencyText = `Potency: ${med.potency}`;
+      const repetitionText = `Repetition: ${med.repetition}`;
+      
+      // Check if both fit on same line
+      const potencyWidth = doc.getTextWidth(potencyText);
+      const repetitionWidth = doc.getTextWidth(repetitionText);
+      const availableWidth = contentWidth - 10;
+      
+      if (potencyWidth + repetitionWidth + 12 < availableWidth) {
+        // Same line
+        doc.text(potencyText, margin + 5, yPos);
+        doc.text(repetitionText, margin + 5 + potencyWidth + 12, yPos);
+        yPos += 4;
+      } else {
+        // Separate lines
+        doc.text(potencyText, margin + 5, yPos);
+        yPos += 4;
+        doc.text(repetitionText, margin + 5, yPos);
+        yPos += 4;
+      }
+    } else if (med.dosage && med.duration) {
+      // Electro Homeopathy: Dosage and Duration
+      const dosageText = `Dosage: ${med.dosage}`;
+      const durationText = `Duration: ${med.duration}`;
+      
+      // Check if both fit on same line
+      const dosageWidth = doc.getTextWidth(dosageText);
+      const durationWidth = doc.getTextWidth(durationText);
+      const availableWidth = contentWidth - 10;
+      
+      if (dosageWidth + durationWidth + 12 < availableWidth) {
+        // Same line
+        doc.text(dosageText, margin + 5, yPos);
+        doc.text(durationText, margin + 5 + dosageWidth + 12, yPos);
+        yPos += 4;
+      } else {
+        // Separate lines
+        doc.text(dosageText, margin + 5, yPos);
+        yPos += 4;
+        doc.text(durationText, margin + 5, yPos);
+        yPos += 4;
+      }
     }
     
     // Instructions (if exists, compact)

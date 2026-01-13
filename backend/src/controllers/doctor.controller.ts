@@ -113,6 +113,8 @@ export const getMyProfile = async (
           specialization: doctor.specialization,
           clinicName: doctor.clinicName,
           clinicAddress: doctor.clinicAddress,
+          modality: doctor.modality,
+          preferredModality: doctor.preferredModality,
           createdAt: doctor.createdAt,
           updatedAt: doctor.updatedAt,
         },
@@ -141,6 +143,8 @@ export const updateMyProfile = async (
       clinicAddress,
       name,
       phone,
+      modality,
+      preferredModality,
     } = req.body;
 
     const doctor = await Doctor.findOne({ userId });
@@ -149,14 +153,17 @@ export const updateMyProfile = async (
     }
 
     // Update doctor profile
-    if (qualification || specialization || clinicName || clinicAddress) {
-      await Doctor.findByIdAndUpdate(doctor._id, {
-        qualification: qualification || doctor.qualification,
-        specialization: specialization || doctor.specialization,
-        clinicName: clinicName !== undefined ? clinicName : doctor.clinicName,
-        clinicAddress: clinicAddress !== undefined ? clinicAddress : doctor.clinicAddress,
-        updatedAt: new Date(),
-      });
+    const doctorUpdateData: any = {};
+    if (qualification !== undefined) doctorUpdateData.qualification = qualification;
+    if (specialization !== undefined) doctorUpdateData.specialization = specialization;
+    if (clinicName !== undefined) doctorUpdateData.clinicName = clinicName;
+    if (clinicAddress !== undefined) doctorUpdateData.clinicAddress = clinicAddress;
+    if (modality !== undefined) doctorUpdateData.modality = modality;
+    if (preferredModality !== undefined) doctorUpdateData.preferredModality = preferredModality;
+    
+    if (Object.keys(doctorUpdateData).length > 0) {
+      doctorUpdateData.updatedAt = new Date();
+      await Doctor.findByIdAndUpdate(doctor._id, doctorUpdateData);
     }
 
     // Update user profile
@@ -171,11 +178,33 @@ export const updateMyProfile = async (
     const updatedDoctor = await Doctor.findOne({ userId })
       .populate('userId', 'name email phone avatar');
 
+    if (!updatedDoctor) {
+      throw new CustomError('Doctor profile not found', 404);
+    }
+
+    const user = updatedDoctor.userId as any;
+
     res.json({
       success: true,
       message: 'Profile updated successfully',
       data: {
-        doctor: updatedDoctor,
+        doctor: {
+          id: updatedDoctor._id,
+          userId: updatedDoctor.userId,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          avatar: user.avatar,
+          registrationNo: updatedDoctor.registrationNo,
+          qualification: updatedDoctor.qualification,
+          specialization: updatedDoctor.specialization,
+          clinicName: updatedDoctor.clinicName,
+          clinicAddress: updatedDoctor.clinicAddress,
+          modality: updatedDoctor.modality,
+          preferredModality: updatedDoctor.preferredModality,
+          createdAt: updatedDoctor.createdAt,
+          updatedAt: updatedDoctor.updatedAt,
+        },
       },
     });
   } catch (error) {

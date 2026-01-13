@@ -24,6 +24,7 @@ import supportTicketRoutes from './routes/supportTicket.routes.js';
 import medicalReportRoutes from './routes/medicalReport.routes.js';
 import paymentRoutes from './routes/payment.routes.js';
 import aiAnalysisRoutes from './routes/aiAnalysis.routes.js';
+import classicalHomeopathyRoutes from './routes/classicalHomeopathy.routes.js';
 
 const app: Express = express();
 
@@ -90,6 +91,7 @@ app.use('/api/support-tickets', supportTicketRoutes);
 app.use('/api/medical-reports', medicalReportRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/ai', aiAnalysisRoutes);
+app.use('/api/classical-homeopathy', classicalHomeopathyRoutes);
 
 // 404 handler
 app.use((_req: Request, res: Response) => {
@@ -102,13 +104,15 @@ app.use((_req: Request, res: Response) => {
 // Error handler (must be last)
 app.use(errorHandler);
 
-// Start server
-const PORT = config.port;
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`🌍 Environment: ${config.nodeEnv}`);
-  console.log(`📡 API URL: http://localhost:${PORT}`);
-});
+// Start server only if not in test environment
+if (process.env.NODE_ENV !== 'test' && !process.env.JEST_WORKER_ID) {
+  const PORT = config.port;
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`🌍 Environment: ${config.nodeEnv}`);
+    console.log(`📡 API URL: http://localhost:${PORT}`);
+  });
+}
 
 export default app;
 

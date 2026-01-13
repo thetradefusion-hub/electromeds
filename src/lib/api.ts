@@ -8,7 +8,8 @@ const api: AxiosInstance = axios.create({
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
-    'Accept-Encoding': 'gzip, deflate, br',
+    // Note: Accept-Encoding is automatically handled by the browser
+    // Setting it manually causes "Refused to set unsafe header" warning
   },
   withCredentials: false,
   timeout: 30000, // 30 seconds timeout
