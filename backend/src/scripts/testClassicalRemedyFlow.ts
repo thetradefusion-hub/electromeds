@@ -13,7 +13,6 @@ import Remedy from '../models/Remedy.model.js';
 import CaseEngine from '../services/caseEngine.service.js';
 import RubricMappingEngine from '../services/rubricMapping.service.js';
 import RepertoryEngine from '../services/repertoryEngine.service.js';
-import ScoringEngine from '../services/scoringEngine.service.js';
 import ClassicalHomeopathyRuleEngine from '../services/classicalHomeopathyRuleEngine.service.js';
 import Doctor from '../models/Doctor.model.js';
 import Patient from '../models/Patient.model.js';
@@ -213,7 +212,7 @@ async function testFlow() {
     if (!doctor || !patient) {
       console.log('\n   ⚠️  No doctor or patient found. Skipping complete flow test.');
     } else {
-      console.log(`\n   Using Doctor: ${doctor.name || doctor._id}`);
+      console.log(`\n   Using Doctor: ${doctor._id}`);
       console.log(`   Using Patient: ${patient.name || patient._id}`);
       
       const ruleEngine = new ClassicalHomeopathyRuleEngine();
@@ -233,7 +232,7 @@ async function testFlow() {
         if (result.suggestions.topRemedies.length > 0) {
           console.log('\n   Top 5 Remedy Suggestions:');
           result.suggestions.topRemedies.slice(0, 5).forEach((r, i) => {
-            console.log(`     ${i + 1}. ${r.remedy.name} - Score: ${r.finalScore.toFixed(2)}`);
+            console.log(`     ${i + 1}. ${r.remedy.name} - Score: ${r.matchScore.toFixed(2)}`);
             console.log(`        Confidence: ${r.confidence}, Potency: ${r.suggestedPotency}`);
           });
         } else {

@@ -9,7 +9,6 @@ import config from '../config/env.js';
 import Symptom from '../models/Symptom.model.js';
 import Rubric from '../models/Rubric.model.js';
 import RubricRemedy from '../models/RubricRemedy.model.js';
-import Remedy from '../models/Remedy.model.js';
 
 async function testFlow() {
   try {

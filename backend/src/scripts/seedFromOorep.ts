@@ -29,7 +29,6 @@ import config from '../config/env.js';
 import Remedy from '../models/Remedy.model.js';
 import Rubric from '../models/Rubric.model.js';
 import RubricRemedy from '../models/RubricRemedy.model.js';
-import Symptom from '../models/Symptom.model.js';
 
 // OOREP to MongoDB ID mapping
 const rubricIdMap = new Map<number, mongoose.Types.ObjectId>();
@@ -63,10 +62,6 @@ async function extractFromSQLFile(sqlFilePath: string): Promise<{
   const remedies: any[] = [];
   const rubrics: any[] = [];
   const mappings: any[] = [];
-
-  let currentTable: string | null = null;
-  let currentColumns: string[] = [];
-  let inDataSection = false;
 
   // First, extract chapters for later lookup
   console.log('📚 Extracting chapters...');
@@ -416,8 +411,6 @@ function transformMappings(
     }
 
     // Force to publicum (English repertory only)
-    const repertoryType = 'publicum';
-    
     // Ensure grade is between 1-4
     let grade = Math.max(1, Math.min(4, m.grade || 1));
 
