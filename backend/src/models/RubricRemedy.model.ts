@@ -4,7 +4,7 @@ export interface IRubricRemedy extends Document {
   rubricId: mongoose.Types.ObjectId;
   remedyId: mongoose.Types.ObjectId;
   grade: number; // 1, 2, 3, or 4
-  repertoryType: 'kent' | 'bbcr' | 'boericke' | 'synthesis';
+  repertoryType: 'kent' | 'bbcr' | 'boericke' | 'synthesis' | 'publicum';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -30,7 +30,7 @@ const rubricRemedySchema = new Schema<IRubricRemedy>(
     repertoryType: {
       type: String,
       required: [true, 'Repertory type is required'],
-      enum: ['kent', 'bbcr', 'boericke', 'synthesis'],
+      enum: ['kent', 'bbcr', 'boericke', 'synthesis', 'publicum'], // publicum = English repertory
     },
   },
   { timestamps: true }

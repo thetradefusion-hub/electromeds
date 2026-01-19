@@ -42,6 +42,8 @@ export interface RemedySuggestion {
   suggestedPotency: string;
   repetition: string;
   clinicalReasoning: string;
+  matchedSymptoms?: string[];
+  matchedRubrics?: string[];
   warnings?: Array<{
     type: 'contradiction' | 'incompatibility' | 'repetition';
     message: string;

@@ -32,6 +32,9 @@ import {
   ChevronDown,
   ChevronUp,
   Beaker,
+  CheckCircle2,
+  Circle,
+  ArrowRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
@@ -108,6 +111,7 @@ export default function Consultation() {
   const [symptomSearch, setSymptomSearch] = useState('');
   const [selectedSymptoms, setSelectedSymptoms] = useState<SelectedSymptom[]>([]);
   const [suggestedMedicines, setSuggestedMedicines] = useState<SuggestedMedicine[]>([]);
+  const [selectedRemedyIds, setSelectedRemedyIds] = useState<Set<string>>(new Set());
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [diagnosis, setDiagnosis] = useState('');
   const [advice, setAdvice] = useState('');
@@ -340,11 +344,14 @@ export default function Consultation() {
         });
       }
 
-      setSuggestedMedicines(Array.from(medicineMap.values()));
+      const medicinesList = Array.from(medicineMap.values());
+      setSuggestedMedicines(medicinesList);
+      // Auto-select all remedies by default
+      setSelectedRemedyIds(new Set(medicinesList.map((m) => m.medicineId)));
       setShowSuggestions(true);
       
       if (medicineMap.size > 0) {
-        toast.success(`Found ${medicineMap.size} medicine suggestions`);
+        toast.success(`Found ${medicineMap.size} medicine suggestions. Select remedies to create prescription.`);
       } else {
         toast.warning('No matching medicines found. Please check if medicines exist for selected symptoms.');
       }
@@ -356,6 +363,32 @@ export default function Consultation() {
 
   const removeMedicine = (medicineId: string) => {
     setSuggestedMedicines((prev) => prev.filter((m) => m.medicineId !== medicineId));
+    setSelectedRemedyIds((prev) => {
+      const newSet = new Set(prev);
+      newSet.delete(medicineId);
+      return newSet;
+    });
+  };
+
+  const toggleRemedySelection = (medicineId: string) => {
+    setSelectedRemedyIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(medicineId)) {
+        newSet.delete(medicineId);
+      } else {
+        newSet.add(medicineId);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAllRemedies = () => {
+    const allIds = new Set(suggestedMedicines.map((m) => m.medicineId));
+    setSelectedRemedyIds(allIds);
+  };
+
+  const deselectAllRemedies = () => {
+    setSelectedRemedyIds(new Set());
   };
 
   const addManualMedicine = (medicine: Medicine) => {
@@ -376,13 +409,17 @@ export default function Consultation() {
     setShowSuggestions(true);
   };
 
-  const generatePrescription = async () => {
+  const generatePrescription = async (redirectToPrescription = false) => {
     if (!patient) {
       toast.error('Please select a patient');
       return;
     }
-    if (suggestedMedicines.length === 0) {
-      toast.error('Please add medicines to the prescription');
+    
+    // Filter only selected remedies
+    const selectedMedicines = suggestedMedicines.filter((sm) => selectedRemedyIds.has(sm.medicineId));
+    
+    if (selectedMedicines.length === 0) {
+      toast.error('Please select at least one remedy to create prescription');
       return;
     }
     if (!doctorInfo) {
@@ -400,11 +437,11 @@ export default function Consultation() {
       durationUnit: ss.durationUnit,
     }));
 
-    const medicineData: PrescriptionMedicine[] = suggestedMedicines.map((sm) => ({
+    const medicineData: PrescriptionMedicine[] = selectedMedicines.map((sm) => ({
       id: sm.medicineId,
       name: sm.medicine.name,
       category: sm.medicine.category,
-      modality: sm.medicine.modality || 'electro_homeopathy', // Add modality
+      modality: sm.medicine.modality || 'electro_homeopathy',
       dosage: sm.dosage,
       duration: sm.duration,
       instructions: sm.instructions,
@@ -436,6 +473,14 @@ export default function Consultation() {
     setGenerating(false);
 
     if (prescription) {
+      // If redirecting, don't generate PDF, just redirect
+      if (redirectToPrescription) {
+        toast.success('Prescription created successfully!');
+        navigate('/prescriptions');
+        return;
+      }
+
+      // Otherwise, generate PDF and redirect
       generatePrescriptionPDF(
         {
           prescription_no: prescription.prescription_no,
@@ -461,6 +506,7 @@ export default function Consultation() {
       setSelectedPatientId(null);
       setSelectedSymptoms([]);
       setSuggestedMedicines([]);
+      setSelectedRemedyIds(new Set());
       setShowSuggestions(false);
       setDiagnosis('');
       setAdvice('');
@@ -471,10 +517,11 @@ export default function Consultation() {
   };
 
   const handleWhatsAppShare = () => {
-    if (!patient || !doctorInfo || suggestedMedicines.length === 0) return;
+    if (!patient || !doctorInfo || selectedRemedyIds.size === 0) return;
 
+    const selectedMedicines = suggestedMedicines.filter((sm) => selectedRemedyIds.has(sm.medicineId));
     const symptomData = selectedSymptoms.map((ss) => ({ name: ss.symptom.name }));
-    const medicineData = suggestedMedicines.map((sm) => ({
+    const medicineData = selectedMedicines.map((sm) => ({
       name: sm.medicine.name,
       dosage: sm.dosage,
       duration: sm.duration,
@@ -566,11 +613,24 @@ export default function Consultation() {
         )}
 
         {/* Patient Selection - Shared for both modalities */}
-        <div className="medical-card">
-            <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-foreground">
-              <User className="h-5 w-5 text-primary" />
-              Select Patient
-            </h3>
+        <div className="medical-card border-primary/10 bg-gradient-to-br from-primary/5 via-background to-background">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 shadow-lg shadow-primary/20">
+                  <User className="h-6 w-6 text-primary-foreground" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">Select Patient</h3>
+                  <p className="text-xs text-muted-foreground">Choose a patient to start consultation</p>
+                </div>
+              </div>
+              {selectedPatientId && (
+                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                  Selected
+                </Badge>
+              )}
+            </div>
 
             {!selectedPatientId ? (
               <div>
@@ -589,29 +649,29 @@ export default function Consultation() {
                     <button
                       key={p.id}
                       onClick={() => setSelectedPatientId(p.id)}
-                      className="flex w-full items-center justify-between rounded-lg border border-border p-3 text-left transition-all hover:border-primary/30 hover:bg-primary/5"
+                      className="group flex w-full items-center justify-between rounded-xl border border-border/50 bg-card p-4 text-left transition-all hover:border-primary/50 hover:bg-primary/5 hover:shadow-md"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
-                          <User className="h-5 w-5 text-primary" />
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 group-hover:from-primary/30 group-hover:to-primary/20 transition-all">
+                          <User className="h-6 w-6 text-primary" />
                         </div>
                         <div>
-                          <p className="font-medium text-foreground">{p.name}</p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="font-semibold text-foreground group-hover:text-primary transition-colors">{p.name}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
                             {p.patient_id} • {p.age}y, {p.gender}
                           </p>
                         </div>
                       </div>
-                      <span
+                      <Badge
                         className={cn(
-                          'medical-badge',
+                          'transition-all',
                           p.case_type === 'new'
-                            ? 'bg-accent/10 text-accent'
-                            : 'bg-primary/10 text-primary'
+                            ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                            : 'bg-blue-500/10 text-blue-600 border-blue-500/20'
                         )}
                       >
                         {p.case_type === 'new' ? 'New' : 'Follow-up'}
-                      </span>
+                      </Badge>
                     </button>
                   ))}
                   {filteredPatients.length === 0 && (
@@ -622,14 +682,14 @@ export default function Consultation() {
             ) : (
               <div className="space-y-4">
                 {/* Selected Patient Info */}
-                <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 p-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full gradient-primary">
-                      <User className="h-6 w-6 text-primary-foreground" />
+                <div className="flex items-center justify-between rounded-xl border-2 border-primary/30 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-5 shadow-lg shadow-primary/10">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary/80 shadow-lg shadow-primary/30">
+                      <User className="h-8 w-8 text-primary-foreground" />
                     </div>
                     <div>
-                      <p className="font-semibold text-foreground">{patient?.name}</p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="font-bold text-lg text-foreground">{patient?.name}</p>
+                      <p className="text-sm text-muted-foreground mt-1">
                         {patient?.patient_id} • {patient?.age}y, {patient?.gender} • {patient?.mobile}
                       </p>
                     </div>
@@ -653,16 +713,18 @@ export default function Consultation() {
 
                 {/* Patient History Preview */}
                 {patientHistory.length > 0 && (
-                  <div className="rounded-lg border border-border bg-muted/30 p-3">
+                  <div className="rounded-xl border border-border/50 bg-gradient-to-br from-muted/50 to-muted/30 p-4 shadow-sm">
                     <button
                       onClick={() => setShowHistory(!showHistory)}
-                      className="flex w-full items-center justify-between text-sm font-medium text-foreground"
+                      className="flex w-full items-center justify-between rounded-lg p-2 hover:bg-background/50 transition-colors"
                     >
-                      <span className="flex items-center gap-2">
-                        <Clock className="h-4 w-4 text-muted-foreground" />
+                      <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10">
+                          <Clock className="h-4 w-4 text-blue-600" />
+                        </div>
                         Previous Visits ({patientHistory.length})
                       </span>
-                      {showHistory ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      {showHistory ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                     </button>
                     
                     {showHistory && (
@@ -675,22 +737,22 @@ export default function Consultation() {
                           patientHistory.map((rx) => (
                             <div
                               key={rx.id}
-                              className="rounded-lg border border-border bg-background p-2.5 text-xs"
+                              className="group rounded-xl border border-border/50 bg-background p-3 text-xs shadow-sm hover:border-primary/30 hover:shadow-md transition-all"
                             >
-                              <div className="flex items-center justify-between mb-1.5">
-                                <span className="font-medium text-foreground">{rx.prescription_no}</span>
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="font-semibold text-foreground">{rx.prescription_no}</span>
                                 <span className="text-muted-foreground">
                                   {format(new Date(rx.created_at), 'dd MMM yyyy')}
                                 </span>
                               </div>
-                              <div className="flex flex-wrap gap-1">
+                              <div className="flex flex-wrap gap-1.5">
                                 {rx.symptoms.slice(0, 3).map((s, i) => (
-                                  <Badge key={i} variant="secondary" className="text-[10px] px-1.5 py-0">
+                                  <Badge key={i} variant="secondary" className="text-[10px] px-2 py-0.5 bg-primary/10 text-primary border-primary/20">
                                     {s.name}
                                   </Badge>
                                 ))}
                                 {rx.symptoms.length > 3 && (
-                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                                  <Badge variant="outline" className="text-[10px] px-2 py-0.5">
                                     +{rx.symptoms.length - 3}
                                   </Badge>
                                 )}
@@ -716,7 +778,16 @@ export default function Consultation() {
             }}
             onPrescriptionCreated={async (prescriptionId) => {
               console.log('Prescription created:', prescriptionId);
-              // Refresh patient history
+              
+              // Show success message
+              toast.success('Prescription created successfully! Redirecting to prescriptions page...');
+              
+              // Navigate to prescriptions page after a short delay
+              setTimeout(() => {
+                navigate('/prescriptions');
+              }, 1000);
+              
+              // Refresh patient history (optional, in case user comes back)
               try {
                 const response = await prescriptionApi.getPrescriptions();
                 if (response.success && response.data) {
@@ -753,26 +824,33 @@ export default function Consultation() {
             <div className="lg:col-span-2 space-y-6">
           {/* Vitals Recording */}
           {selectedPatientId && (
-            <div className="medical-card">
+            <div className="medical-card border-accent/20 bg-gradient-to-br from-accent/5 to-transparent">
               <button
                 onClick={() => setShowVitals(!showVitals)}
                 className="flex w-full items-center justify-between"
               >
-                <h3 className="flex items-center gap-2 text-lg font-semibold text-foreground">
-                  <Activity className="h-5 w-5 text-accent" />
-                  Record Vitals
-                  {(vitals.bloodPressure || vitals.temperature || vitals.weight || vitals.pulse) && (
-                    <Badge variant="secondary" className="ml-2 text-xs">Recorded</Badge>
-                  )}
-                </h3>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-accent/20 to-accent/10">
+                    <Activity className="h-5 w-5 text-accent" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">Record Vitals</h3>
+                    {(vitals.bloodPressure || vitals.temperature || vitals.weight || vitals.pulse) && (
+                      <Badge variant="secondary" className="mt-1 text-xs bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        Recorded
+                      </Badge>
+                    )}
+                  </div>
+                </div>
                 {showVitals ? <ChevronUp className="h-5 w-5 text-muted-foreground" /> : <ChevronDown className="h-5 w-5 text-muted-foreground" />}
               </button>
 
               {showVitals && (
                 <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">
-                  <div>
-                    <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-foreground">
-                      <Heart className="h-3.5 w-3.5 text-red-500" />
+                  <div className="rounded-lg border border-border/50 bg-card p-3 hover:border-primary/30 transition-all">
+                    <label className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground uppercase tracking-wide">
+                      <Heart className="h-4 w-4 text-red-500" />
                       Blood Pressure
                     </label>
                     <input
@@ -780,12 +858,12 @@ export default function Consultation() {
                       placeholder="120/80"
                       value={vitals.bloodPressure}
                       onChange={(e) => setVitals({ ...vitals, bloodPressure: e.target.value })}
-                      className="medical-input"
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
-                  <div>
-                    <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-foreground">
-                      <Thermometer className="h-3.5 w-3.5 text-orange-500" />
+                  <div className="rounded-lg border border-border/50 bg-card p-3 hover:border-primary/30 transition-all">
+                    <label className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground uppercase tracking-wide">
+                      <Thermometer className="h-4 w-4 text-orange-500" />
                       Temperature (°F)
                     </label>
                     <input
@@ -793,12 +871,12 @@ export default function Consultation() {
                       placeholder="98.6"
                       value={vitals.temperature}
                       onChange={(e) => setVitals({ ...vitals, temperature: e.target.value })}
-                      className="medical-input"
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
-                  <div>
-                    <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-foreground">
-                      <Weight className="h-3.5 w-3.5 text-blue-500" />
+                  <div className="rounded-lg border border-border/50 bg-card p-3 hover:border-primary/30 transition-all">
+                    <label className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground uppercase tracking-wide">
+                      <Weight className="h-4 w-4 text-blue-500" />
                       Weight (kg)
                     </label>
                     <input
@@ -806,12 +884,12 @@ export default function Consultation() {
                       placeholder="70"
                       value={vitals.weight}
                       onChange={(e) => setVitals({ ...vitals, weight: e.target.value })}
-                      className="medical-input"
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
-                  <div>
-                    <label className="mb-1.5 flex items-center gap-1.5 text-sm font-medium text-foreground">
-                      <Activity className="h-3.5 w-3.5 text-purple-500" />
+                  <div className="rounded-lg border border-border/50 bg-card p-3 hover:border-primary/30 transition-all">
+                    <label className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground uppercase tracking-wide">
+                      <Activity className="h-4 w-4 text-purple-500" />
                       Pulse (bpm)
                     </label>
                     <input
@@ -819,7 +897,7 @@ export default function Consultation() {
                       placeholder="72"
                       value={vitals.pulse}
                       onChange={(e) => setVitals({ ...vitals, pulse: e.target.value })}
-                      className="medical-input"
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium focus:border-primary focus:ring-2 focus:ring-primary/20"
                     />
                   </div>
                 </div>
@@ -834,24 +912,36 @@ export default function Consultation() {
           />
 
           {/* Symptoms Selection */}
-          <div className="medical-card">
-            <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-foreground">
-              <Stethoscope className="h-5 w-5 text-accent" />
-              Record Symptoms
-            </h3>
+          <div className="medical-card border-accent/10 bg-gradient-to-br from-accent/5 to-transparent">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-accent/20 to-accent/10">
+                  <Stethoscope className="h-5 w-5 text-accent" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-foreground">Record Symptoms</h3>
+                  <p className="text-xs text-muted-foreground">Add patient symptoms for diagnosis</p>
+                </div>
+              </div>
+              {selectedSymptoms.length > 0 && (
+                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+                  {selectedSymptoms.length} {selectedSymptoms.length === 1 ? 'Symptom' : 'Symptoms'}
+                </Badge>
+              )}
+            </div>
 
             {/* Quick Symptom Chips */}
             {quickSymptomChips.length > 0 && (
-              <div className="mb-4">
-                <p className="mb-2 text-xs font-medium text-muted-foreground uppercase">Quick Add</p>
+              <div className="mb-4 rounded-lg border border-border/50 bg-muted/30 p-3">
+                <p className="mb-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Quick Add Common Symptoms</p>
                 <div className="flex flex-wrap gap-2">
                   {quickSymptomChips.slice(0, 8).map((symptom) => (
                     <button
                       key={symptom.id}
                       onClick={() => addSymptom(symptom)}
-                      className="flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-sm text-foreground transition-all hover:border-primary hover:bg-primary/5"
+                      className="group flex items-center gap-1.5 rounded-full border border-primary/20 bg-background px-3 py-1.5 text-sm font-medium text-foreground transition-all hover:border-primary hover:bg-primary hover:text-primary-foreground hover:shadow-md"
                     >
-                      <Plus className="h-3 w-3 text-primary" />
+                      <Plus className="h-3.5 w-3.5 text-primary group-hover:text-primary-foreground transition-colors" />
                       {symptom.name}
                     </button>
                   ))}
@@ -864,7 +954,7 @@ export default function Consultation() {
                 {selectedSymptoms.map((ss) => (
                   <div
                     key={ss.symptomId}
-                    className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-3"
+                    className="group flex flex-wrap items-center gap-3 rounded-xl border border-border/50 bg-gradient-to-r from-card to-card/50 p-4 shadow-sm hover:shadow-md transition-all"
                   >
                     <span className="font-medium text-foreground">{ss.symptom.name}</span>
                     <select
@@ -917,24 +1007,24 @@ export default function Consultation() {
                 placeholder="Search and add more symptoms..."
                 value={symptomSearch}
                 onChange={(e) => setSymptomSearch(e.target.value)}
-                className="medical-input pl-10"
+                className="medical-input pl-10 rounded-xl border-border/50 focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
             </div>
 
             {symptomSearch && (
-              <div className="mt-3 max-h-64 overflow-y-auto rounded-lg border border-border bg-card p-2 scrollbar-thin">
+              <div className="mt-3 max-h-64 overflow-y-auto rounded-xl border border-border/50 bg-card p-3 shadow-lg scrollbar-thin">
                 {Object.entries(groupedSymptoms).map(([category, categorySymptoms]) => (
-                  <div key={category} className="mb-3 last:mb-0">
-                    <p className="mb-1.5 px-2 text-xs font-medium text-muted-foreground uppercase">{category}</p>
+                  <div key={category} className="mb-4 last:mb-0">
+                    <p className="mb-2 px-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide">{category}</p>
                     <div className="space-y-1">
                       {categorySymptoms.map((symptom) => (
                         <button
                           key={symptom.id}
                           onClick={() => addSymptom(symptom)}
-                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-secondary"
+                          className="group flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-all hover:bg-primary/10 hover:border-primary/30 border border-transparent"
                         >
-                          <Plus className="h-4 w-4 text-primary" />
-                          <span className="text-foreground">{symptom.name}</span>
+                          <Plus className="h-4 w-4 text-primary group-hover:scale-110 transition-transform" />
+                          <span className="text-foreground font-medium">{symptom.name}</span>
                         </button>
                       ))}
                     </div>
@@ -1006,14 +1096,35 @@ export default function Consultation() {
 
         {/* Right Panel - Medicine Suggestions */}
         <div className="space-y-6">
-          <div className="medical-card">
-            <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-foreground">
-              <Pill className="h-5 w-5 text-primary" />
-              Suggested Medicines
+          <div className="medical-card sticky top-4">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="flex items-center gap-2 text-lg font-semibold text-foreground">
+                <Pill className="h-5 w-5 text-primary" />
+                Suggested Remedies
+                {suggestedMedicines.length > 0 && (
+                  <Badge variant="secondary" className="ml-2">{suggestedMedicines.length}</Badge>
+                )}
+              </h3>
               {suggestedMedicines.length > 0 && (
-                <Badge variant="secondary" className="ml-auto">{suggestedMedicines.length}</Badge>
+                <div className="flex gap-2">
+                  {selectedRemedyIds.size < suggestedMedicines.length ? (
+                    <button
+                      onClick={selectAllRemedies}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Select All
+                    </button>
+                  ) : (
+                    <button
+                      onClick={deselectAllRemedies}
+                      className="text-xs text-muted-foreground hover:underline"
+                    >
+                      Deselect All
+                    </button>
+                  )}
+                </div>
               )}
-            </h3>
+            </div>
 
             {!showSuggestions ? (
               <div className="flex flex-col items-center py-8 text-center">
@@ -1035,73 +1146,112 @@ export default function Consultation() {
               </div>
             ) : (
               <div className="space-y-3">
-                {suggestedMedicines.map((pm) => (
-                  <div
-                    key={pm.medicineId}
-                    className="rounded-lg border border-border p-3 transition-all hover:border-primary/30"
-                  >
-                    <div className="mb-2 flex items-start justify-between">
-                      <div>
-                        <p className="font-medium text-foreground">{pm.medicine.name}</p>
-                        <p className="text-xs text-muted-foreground">{pm.medicine.category}</p>
+                {suggestedMedicines.map((pm) => {
+                  const isSelected = selectedRemedyIds.has(pm.medicineId);
+                  return (
+                    <div
+                      key={pm.medicineId}
+                      onClick={() => toggleRemedySelection(pm.medicineId)}
+                      className={cn(
+                        "relative cursor-pointer rounded-lg border-2 p-3 transition-all",
+                        isSelected
+                          ? "border-primary bg-primary/5 shadow-md"
+                          : "border-border bg-card hover:border-primary/50 hover:bg-primary/2"
+                      )}
+                    >
+                      <div className="mb-2 flex items-start justify-between">
+                        <div className="flex items-start gap-2 flex-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleRemedySelection(pm.medicineId);
+                            }}
+                            className="mt-0.5 flex-shrink-0 text-primary"
+                          >
+                            {isSelected ? (
+                              <CheckCircle2 className="h-5 w-5 fill-primary text-primary" />
+                            ) : (
+                              <Circle className="h-5 w-5" />
+                            )}
+                          </button>
+                          <div className="flex-1">
+                            <p className="font-semibold text-foreground">{pm.medicine.name}</p>
+                            <p className="text-xs text-muted-foreground">{pm.medicine.category}</p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeMedicine(pm.medicineId);
+                          }}
+                          className="flex-shrink-0 text-muted-foreground hover:text-destructive"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
                       </div>
-                      <button
-                        onClick={() => removeMedicine(pm.medicineId)}
-                        className="text-muted-foreground hover:text-destructive"
+                      <div 
+                        onClick={(e) => e.stopPropagation()}
+                        className="grid gap-2 sm:grid-cols-2"
                       >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <div>
-                        <label className="text-xs text-muted-foreground">Dosage</label>
+                        <div>
+                          <label className="text-xs text-muted-foreground">Dosage</label>
+                          <input
+                            type="text"
+                            value={pm.dosage}
+                            onChange={(e) => {
+                              setSuggestedMedicines((prev) =>
+                                prev.map((m) =>
+                                  m.medicineId === pm.medicineId ? { ...m, dosage: e.target.value } : m
+                                )
+                              );
+                            }}
+                            className="w-full rounded border border-input bg-background px-2 py-1 text-sm"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-muted-foreground">Duration</label>
+                          <input
+                            type="text"
+                            value={pm.duration}
+                            onChange={(e) => {
+                              setSuggestedMedicines((prev) =>
+                                prev.map((m) =>
+                                  m.medicineId === pm.medicineId ? { ...m, duration: e.target.value } : m
+                                )
+                              );
+                            }}
+                            className="w-full rounded border border-input bg-background px-2 py-1 text-sm"
+                          />
+                        </div>
+                      </div>
+                      <div 
+                        onClick={(e) => e.stopPropagation()}
+                        className="mt-2"
+                      >
+                        <label className="text-xs text-muted-foreground">Instructions (optional)</label>
                         <input
                           type="text"
-                          value={pm.dosage}
+                          value={pm.instructions}
                           onChange={(e) => {
                             setSuggestedMedicines((prev) =>
                               prev.map((m) =>
-                                m.medicineId === pm.medicineId ? { ...m, dosage: e.target.value } : m
+                                m.medicineId === pm.medicineId ? { ...m, instructions: e.target.value } : m
                               )
                             );
                           }}
+                          placeholder="e.g., Take after meals"
                           className="w-full rounded border border-input bg-background px-2 py-1 text-sm"
                         />
                       </div>
-                      <div>
-                        <label className="text-xs text-muted-foreground">Duration</label>
-                        <input
-                          type="text"
-                          value={pm.duration}
-                          onChange={(e) => {
-                            setSuggestedMedicines((prev) =>
-                              prev.map((m) =>
-                                m.medicineId === pm.medicineId ? { ...m, duration: e.target.value } : m
-                              )
-                            );
-                          }}
-                          className="w-full rounded border border-input bg-background px-2 py-1 text-sm"
-                        />
-                      </div>
+                      {isSelected && (
+                        <div className="mt-2 flex items-center gap-1 text-xs text-primary">
+                          <CheckCircle2 className="h-3 w-3" />
+                          <span>Selected for prescription</span>
+                        </div>
+                      )}
                     </div>
-                    <div className="mt-2">
-                      <label className="text-xs text-muted-foreground">Instructions (optional)</label>
-                      <input
-                        type="text"
-                        value={pm.instructions}
-                        onChange={(e) => {
-                          setSuggestedMedicines((prev) =>
-                            prev.map((m) =>
-                              m.medicineId === pm.medicineId ? { ...m, instructions: e.target.value } : m
-                            )
-                          );
-                        }}
-                        placeholder="e.g., Take after meals"
-                        className="w-full rounded border border-input bg-background px-2 py-1 text-sm"
-                      />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
@@ -1137,11 +1287,42 @@ export default function Consultation() {
             </div>
           </div>
 
+          {selectedRemedyIds.size > 0 && (
+            <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-foreground">
+                  {selectedRemedyIds.size} remedy{selectedRemedyIds.size > 1 ? 'ies' : ''} selected
+                </span>
+                <Badge variant="default" className="bg-primary">
+                  Ready
+                </Badge>
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-col gap-2">
             <button
-              onClick={generatePrescription}
-              disabled={!patient || suggestedMedicines.length === 0 || generating}
-              className="w-full medical-btn-primary disabled:opacity-50"
+              onClick={() => generatePrescription(true)}
+              disabled={!patient || selectedRemedyIds.size === 0 || generating}
+              className="w-full medical-btn-primary disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {generating ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Creating Prescription...
+                </>
+              ) : (
+                <>
+                  <ArrowRight className="h-4 w-4" />
+                  Create Prescription & View
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={() => generatePrescription(false)}
+              disabled={!patient || selectedRemedyIds.size === 0 || generating}
+              className="w-full medical-btn-accent disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {generating ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -1151,7 +1332,7 @@ export default function Consultation() {
               Generate & Download PDF
             </button>
             
-            {patient && suggestedMedicines.length > 0 && (
+            {patient && selectedRemedyIds.size > 0 && (
               <button
                 onClick={handleWhatsAppShare}
                 className="w-full flex items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-green-700"

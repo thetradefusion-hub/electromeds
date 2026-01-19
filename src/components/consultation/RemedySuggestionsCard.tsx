@@ -14,6 +14,10 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
+  Target,
+  List,
+  BookOpen,
+  Lightbulb,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { RemedySuggestion } from '@/lib/api/classicalHomeopathy.api';
@@ -149,6 +153,79 @@ export function RemedySuggestionsCard({
                   </span>
                 </div>
 
+                {/* Why This Remedy? - Prominent Section */}
+                <div className="mb-3 rounded-lg border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/20">
+                      <Lightbulb className="h-4 w-4 text-primary" />
+                    </div>
+                    <h5 className="font-semibold text-foreground text-base">
+                      Why This Remedy?
+                    </h5>
+                  </div>
+
+                  {/* Matched Symptoms */}
+                  {suggestion.matchedSymptoms && suggestion.matchedSymptoms.length > 0 && (
+                    <div className="mb-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Target className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium text-foreground">
+                          Matched Symptoms ({suggestion.matchedSymptoms.length})
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {suggestion.matchedSymptoms.slice(0, 8).map((symptom, idx) => (
+                          <Badge
+                            key={idx}
+                            variant="secondary"
+                            className="text-xs bg-primary/10 text-primary border-primary/20"
+                          >
+                            {symptom}
+                          </Badge>
+                        ))}
+                        {suggestion.matchedSymptoms.length > 8 && (
+                          <Badge
+                            variant="secondary"
+                            className="text-xs bg-muted text-muted-foreground"
+                          >
+                            +{suggestion.matchedSymptoms.length - 8} more
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Matched Rubrics */}
+                  {suggestion.matchedRubrics && suggestion.matchedRubrics.length > 0 && (
+                    <div className="mb-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <BookOpen className="h-4 w-4 text-primary" />
+                        <span className="text-sm font-medium text-foreground">
+                          Matched Repertory Rubrics ({suggestion.matchedRubrics.length})
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        This remedy appears in {suggestion.matchedRubrics.length} repertory rubrics that match the patient's symptoms, indicating strong clinical indication.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Clinical Reasoning Summary */}
+                  <div className="mt-3 pt-3 border-t border-primary/20">
+                    <div className="flex items-start gap-2">
+                      <Info className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-foreground mb-1">
+                          Clinical Reasoning:
+                        </p>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                          {suggestion.clinicalReasoning}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Potency & Repetition */}
                 <div className="mb-3 grid gap-2 sm:grid-cols-2">
                   <div className="rounded-lg border border-border/30 bg-muted/30 p-2">
@@ -184,7 +261,7 @@ export function RemedySuggestionsCard({
                   </div>
                 )}
 
-                {/* Clinical Reasoning */}
+                {/* Detailed Clinical Reasoning - Expandable */}
                 <div className="mb-3">
                   <button
                     onClick={() =>
@@ -193,9 +270,9 @@ export function RemedySuggestionsCard({
                     className="flex w-full items-center justify-between rounded-lg border border-border/30 bg-muted/30 p-2 hover:bg-muted/50 transition-colors"
                   >
                     <div className="flex items-center gap-2">
-                      <Info className="h-4 w-4 text-muted-foreground" />
+                      <List className="h-4 w-4 text-muted-foreground" />
                       <span className="text-sm font-medium text-foreground">
-                        Clinical Reasoning
+                        Detailed Analysis
                       </span>
                     </div>
                     {isExpanded ? (
@@ -206,9 +283,32 @@ export function RemedySuggestionsCard({
                   </button>
                   {isExpanded && (
                     <div className="mt-2 rounded-lg border border-border/30 bg-muted/20 p-3">
-                      <p className="text-sm text-foreground leading-relaxed">
-                        {suggestion.clinicalReasoning}
-                      </p>
+                      <div className="space-y-2">
+                        <p className="text-xs font-medium text-foreground mb-2">
+                          Complete Clinical Reasoning:
+                        </p>
+                        <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
+                          {suggestion.clinicalReasoning}
+                        </p>
+                        {suggestion.matchedSymptoms && suggestion.matchedSymptoms.length > 8 && (
+                          <div className="mt-3 pt-3 border-t border-border/30">
+                            <p className="text-xs font-medium text-foreground mb-2">
+                              All Matched Symptoms ({suggestion.matchedSymptoms.length}):
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {suggestion.matchedSymptoms.map((symptom, idx) => (
+                                <Badge
+                                  key={idx}
+                                  variant="outline"
+                                  className="text-xs"
+                                >
+                                  {symptom}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>

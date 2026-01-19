@@ -1,7 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IRubric extends Document {
-  repertoryType: 'kent' | 'bbcr' | 'boericke' | 'synthesis';
+  repertoryType: 'kent' | 'bbcr' | 'boericke' | 'synthesis' | 'publicum';
   chapter: string; // Mind, Generals, etc.
   rubricText: string; // "FEAR - death, of"
   linkedSymptoms: string[]; // Symptom codes
@@ -16,7 +16,7 @@ const rubricSchema = new Schema<IRubric>(
     repertoryType: {
       type: String,
       required: [true, 'Repertory type is required'],
-      enum: ['kent', 'bbcr', 'boericke', 'synthesis'],
+      enum: ['kent', 'bbcr', 'boericke', 'synthesis', 'publicum'], // publicum = English repertory
     },
     chapter: {
       type: String,

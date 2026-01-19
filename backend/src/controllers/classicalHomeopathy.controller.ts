@@ -24,11 +24,22 @@ import type { StructuredCase } from '../services/caseEngine.service.js';
 export const suggestRemedies = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  _next: NextFunction
 ): Promise<void> => {
   try {
+    console.log('[suggestRemedies] Request received');
     const userId = req.user!.id;
     const { patientId, structuredCase, patientHistory } = req.body;
+
+    console.log('[suggestRemedies] Request data:', {
+      patientId,
+      structuredCaseKeys: structuredCase ? Object.keys(structuredCase) : null,
+      mentalCount: structuredCase?.mental?.length || 0,
+      generalsCount: structuredCase?.generals?.length || 0,
+      particularsCount: structuredCase?.particulars?.length || 0,
+      modalitiesCount: structuredCase?.modalities?.length || 0,
+      hasPatientHistory: !!patientHistory,
+    });
 
     // Validation
     if (!patientId) {
@@ -85,16 +96,28 @@ export const suggestRemedies = async (
 
     const doctorId = doctor._id;
 
+    console.log('[suggestRemedies] Doctor found:', {
+      doctorId: doctorId.toString(),
+      modality: doctor.modality,
+    });
+
     // Initialize rule engine
+    console.log('[suggestRemedies] Initializing rule engine...');
     const ruleEngine = new ClassicalHomeopathyRuleEngine();
 
     // Process case
+    console.log('[suggestRemedies] Processing case...');
     const result = await ruleEngine.processCase(
       doctorId,
       new mongoose.Types.ObjectId(patientId),
       structuredCase as StructuredCase,
       patientHistory
     );
+
+    console.log('[suggestRemedies] Case processed successfully:', {
+      suggestionsCount: result.suggestions?.topRemedies?.length || 0,
+      caseRecordId: result.caseRecordId?.toString(),
+    });
 
     res.json({
       success: true,
@@ -103,8 +126,15 @@ export const suggestRemedies = async (
         caseRecordId: result.caseRecordId,
       },
     });
-  } catch (error) {
-    next(error);
+  } catch (error: any) {
+    console.error('Error in suggestRemedies:', error);
+    console.error('Error stack:', error.stack);
+    // Return more detailed error message for debugging
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to get remedy suggestions',
+      error: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+    });
   }
 };
 

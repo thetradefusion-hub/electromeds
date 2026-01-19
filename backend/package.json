@@ -15,6 +15,13 @@
     "seed:plans": "tsx src/scripts/seedSubscriptionPlans.ts",
     "seed:classical-comprehensive": "tsx src/scripts/seedClassicalHomeopathyComprehensive.ts",
     "seed:users": "tsx src/scripts/seedUsers.ts",
+    "seed:oorep": "tsx src/scripts/seedFromOorep.ts",
+    "seed:oorep:file": "tsx src/scripts/seedFromOorep.ts --file=../oorep.sql",
+    "verify:oorep": "tsx src/scripts/verifyOorepSeeding.ts",
+    "test:classical-flow": "tsx src/scripts/testClassicalHomeopathyFlow.ts",
+    "test:remedy-flow": "tsx src/scripts/testClassicalRemedyFlow.ts",
+    "clear:classical": "tsx src/scripts/clearClassicalData.ts",
+    "clear:kent": "tsx src/scripts/clearKentRubrics.ts",
     "recreate:rules": "tsx src/scripts/recreateRulesWithCurrentSymptoms.ts",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -43,7 +50,8 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.0.3",
     "morgan": "^1.10.0",
-    "multer": "^1.4.5-lts.1"
+    "multer": "^1.4.5-lts.1",
+    "pg": "^8.11.3"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -55,6 +63,7 @@
     "@types/morgan": "^1.9.9",
     "@types/multer": "^1.4.11",
     "@types/node": "^20.10.6",
+    "@types/pg": "^8.10.9",
     "@types/supertest": "^6.0.3",
     "@typescript-eslint/eslint-plugin": "^6.17.0",
     "@typescript-eslint/parser": "^6.17.0",

@@ -5,9 +5,10 @@
  */
 
 import { useState, useMemo } from 'react';
-import { Search, Plus, X, Brain, Activity, Target, TrendingUp } from 'lucide-react';
+import { Search, Plus, X, Brain, Activity, Target, TrendingUp, Info, Lightbulb, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Symptom } from '@/hooks/useSymptoms';
+import { Badge } from '@/components/ui/badge';
 
 // Extend Symptom interface to include modality
 interface ExtendedSymptom extends Symptom {
@@ -129,6 +130,39 @@ export function ClassicalSymptomSelector({
     }
   };
 
+  // Category-specific suggestions/examples
+  const categorySuggestions: Record<string, { examples: string[]; tip: string }> = {
+    mental: {
+      examples: ['Anxiety', 'Fear', 'Irritability', 'Depression', 'Confusion', 'Anger', 'Restlessness', 'Memory Loss'],
+      tip: 'Mental symptoms include emotions, fears, anxieties, mental states, and behavioral patterns. These are MOST important in Classical Homeopathy.',
+    },
+    general: {
+      examples: ['Fever', 'Thirst', 'Appetite', 'Sleep', 'Sweating', 'Weakness', 'Fatigue', 'Cold Intolerance'],
+      tip: 'General symptoms affect the whole body - appetite, sleep, thirst, temperature preferences, energy levels, etc.',
+    },
+    particular: {
+      examples: ['Headache', 'Back Pain', 'Throat Pain', 'Joint Pain', 'Skin Rash', 'Eye Pain', 'Chest Pain'],
+      tip: 'Particular symptoms are localized to a specific body part with specific sensations (burning, throbbing, etc.).',
+    },
+    modality: {
+      examples: ['Worse from Motion', 'Better from Rest', 'Worse at Night', 'Better from Heat', 'Worse from Cold'],
+      tip: 'Modalities describe conditions that make symptoms better or worse (time, weather, position, etc.).',
+    },
+  };
+
+  const suggestions = categorySuggestions[category] || { examples: [], tip: '' };
+  
+  // Find matching symptoms from suggestions
+  const suggestedSymptoms = useMemo(() => {
+    return suggestions.examples
+      .map(example => symptoms.find(s => 
+        s.name.toLowerCase().includes(example.toLowerCase()) ||
+        example.toLowerCase().includes(s.name.toLowerCase())
+      ))
+      .filter((s): s is ExtendedSymptom => s !== undefined && !selectedSymptoms.find(ss => ss.symptomId === s.id))
+      .slice(0, 6); // Limit to 6 suggestions
+  }, [symptoms, suggestions.examples, selectedSymptoms]);
+
   return (
     <div className="medical-card border-border/50">
       <div className="mb-4 flex items-center justify-between">
@@ -152,14 +186,109 @@ export function ClassicalSymptomSelector({
         </button>
       </div>
 
+      {/* Guidance Info Card */}
+      {categorySymptoms.length === 0 && !showAddForm && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
+          <div className="flex items-start gap-3">
+            <Info className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h4 className="font-medium text-foreground mb-1.5 flex items-center gap-2">
+                <Lightbulb className="h-4 w-4 text-primary" />
+                What to add in {title}?
+              </h4>
+              <p className="text-sm text-muted-foreground mb-3">{suggestions.tip}</p>
+              
+              {suggestions.examples.length > 0 && (
+                <div>
+                  <p className="text-xs font-medium text-foreground mb-2">Example symptoms:</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {suggestions.examples.slice(0, 8).map((example, idx) => {
+                      const matchingSymptom = symptoms.find(s => 
+                        s.name.toLowerCase().includes(example.toLowerCase()) ||
+                        example.toLowerCase().includes(s.name.toLowerCase())
+                      );
+                      const isSelected = matchingSymptom && selectedSymptoms.find(ss => ss.symptomId === matchingSymptom.id);
+                      
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => {
+                            if (matchingSymptom && !isSelected) {
+                              const newSymptom: SelectedSymptom = {
+                                symptomId: matchingSymptom.id,
+                                symptom: matchingSymptom,
+                                category,
+                                ...(category === 'modality' && { type: 'worse' }),
+                              };
+                              onAdd(newSymptom);
+                            }
+                          }}
+                          disabled={!matchingSymptom || !!isSelected}
+                          className={cn(
+                            "rounded-full border px-2.5 py-1 text-xs font-medium transition-all",
+                            matchingSymptom && !isSelected
+                              ? "border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 hover:border-primary/50 cursor-pointer"
+                              : matchingSymptom && isSelected
+                              ? "border-green-500/30 bg-green-500/10 text-green-600 cursor-not-allowed"
+                              : "border-border/30 bg-muted/50 text-muted-foreground cursor-not-allowed"
+                          )}
+                        >
+                          {isSelected ? '✓ ' : ''}{example}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {suggestedSymptoms.length > 0 && (
+                    <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                      <Sparkles className="h-3 w-3" />
+                      <span>{suggestedSymptoms.length} matching symptom{suggestedSymptoms.length > 1 ? 's' : ''} available in your database</span>
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add Symptom Form */}
       {showAddForm && (
         <div className="mb-4 space-y-3 rounded-lg border border-border/50 bg-muted/30 p-4">
+          {/* Quick Suggestions */}
+          {suggestedSymptoms.length > 0 && (
+            <div>
+              <div className="mb-2 flex items-center gap-2">
+                <Sparkles className="h-3.5 w-3.5 text-primary" />
+                <p className="text-xs font-medium text-foreground">Quick Add - Suggested for {title}:</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {suggestedSymptoms.map((symptom) => (
+                  <button
+                    key={symptom.id}
+                    onClick={() => {
+                      const newSymptom: SelectedSymptom = {
+                        symptomId: symptom.id,
+                        symptom,
+                        category,
+                        ...(category === 'modality' && { type: 'worse' }),
+                      };
+                      onAdd(newSymptom);
+                    }}
+                    className="flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary transition-all hover:bg-primary/20 hover:border-primary/50"
+                  >
+                    <Plus className="h-3 w-3" />
+                    {symptom.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
-              placeholder="Search symptoms..."
+              placeholder={`Search ${title.toLowerCase()}... (e.g., ${suggestions.examples.slice(0, 2).join(', ')})`}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="medical-input pl-10"

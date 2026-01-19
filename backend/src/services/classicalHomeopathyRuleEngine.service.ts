@@ -57,19 +57,32 @@ export class ClassicalHomeopathyRuleEngine {
     structuredCase: StructuredCase,
     patientHistory?: Array<{ remedyId: string; date: Date }>
   ): Promise<ProcessCaseResult> {
-    // Step 1: Case Intake
-    const normalizedCase = await this.caseEngine.normalizeCase(structuredCase);
+    try {
+      console.log('[ClassicalHomeopathyRuleEngine] Processing case...');
+      console.log(`[ClassicalHomeopathyRuleEngine] Structured case: ${JSON.stringify(structuredCase).substring(0, 200)}...`);
+      
+      // Step 1: Case Intake
+      const normalizedCase = await this.caseEngine.normalizeCase(structuredCase);
+      console.log(`[ClassicalHomeopathyRuleEngine] Normalized case: Mental=${normalizedCase.mental?.length || 0}, Generals=${normalizedCase.generals?.length || 0}, Particulars=${normalizedCase.particulars?.length || 0}, Modalities=${normalizedCase.modalities?.length || 0}`);
 
     // Step 2: Symptom Normalization (if needed - already done in Step 1, but can re-normalize if needed)
 
     // Step 3: Rubric Mapping
     const rubricMappings = await this.rubricMapping.mapSymptomsToRubrics(normalizedCase);
     const selectedRubrics = rubricMappings.filter((r) => r.autoSelected);
+    
+    if (selectedRubrics.length === 0) {
+      throw new Error('NO RUBRICS SELECTED! Could not find matching English rubrics in publicum repertory for given symptoms.');
+    }
 
     // Step 4: Repertory Engine
     const remedyPool = await this.repertoryEngine.buildRemedyPool(
       selectedRubrics.map((r) => r.rubricId)
     );
+    
+    if (remedyPool.size === 0) {
+      throw new Error('NO REMEDY POOL GENERATED! No remedies found for selected rubrics. Check rubric-remedy mappings.');
+    }
 
     // Step 5: Smart Scoring
     const scoredRemedies = await this.scoringEngine.calculateRemedyScores(
@@ -115,10 +128,15 @@ export class ClassicalHomeopathyRuleEngine {
       },
     });
 
-    return {
-      suggestions,
-      caseRecordId: caseRecord._id,
-    };
+      return {
+        suggestions,
+        caseRecordId: caseRecord._id,
+      };
+    } catch (error: any) {
+      console.error('[ClassicalHomeopathyRuleEngine] Error processing case:', error);
+      console.error('[ClassicalHomeopathyRuleEngine] Error stack:', error.stack);
+      throw error; // Re-throw to be caught by controller
+    }
   }
 }
 

@@ -21,6 +21,7 @@ import { ClassicalSymptomSelector } from './ClassicalSymptomSelector';
 import { RemedySuggestionsCard } from './RemedySuggestionsCard';
 import { classicalHomeopathyApi, StructuredCaseInput, RemedySuggestion } from '@/lib/api/classicalHomeopathy.api';
 import { Symptom } from '@/hooks/useSymptoms';
+import { useApiError } from '@/hooks/useApiError';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -57,6 +58,35 @@ export function ClassicalHomeopathyConsultation({
   onCaseRecordCreated,
   onPrescriptionCreated,
 }: ClassicalHomeopathyConsultationProps) {
+  const { showError } = useApiError();
+  const analysisStages = [
+    {
+      key: 'intake',
+      label: 'Step 1 • Case intake & symptom structuring',
+      description: 'Normalizing mental, general, particular, and modality symptoms',
+    },
+    {
+      key: 'mapping',
+      label: 'Step 2 • Mapping symptoms to repertory rubrics',
+      description: 'Finding matching rubrics in the English (publicum) repertory',
+    },
+    {
+      key: 'repertory',
+      label: 'Step 3 • Building remedy pool from rubrics',
+      description: 'Collecting all remedies related to the matched rubrics',
+    },
+    {
+      key: 'scoring',
+      label: 'Step 4 • Smart scoring & clinical filters',
+      description: 'Applying weights, modalities, pathology and safety checks',
+    },
+    {
+      key: 'suggestions',
+      label: 'Step 5 • Generating final remedy suggestions',
+      description: 'Preparing ranked remedies with transparent reasoning',
+    },
+  ] as const;
+
   const [selectedSymptoms, setSelectedSymptoms] = useState<SelectedSymptom[]>([]);
   const [pathologyTags, setPathologyTags] = useState<string[]>([]);
   const [pathologyInput, setPathologyInput] = useState('');
@@ -64,6 +94,7 @@ export function ClassicalHomeopathyConsultation({
   const [caseRecordId, setCaseRecordId] = useState<string | null>(null);
   const [selectedRemedy, setSelectedRemedy] = useState<RemedySuggestion | null>(null);
   const [loading, setLoading] = useState(false);
+  const [analysisStageIndex, setAnalysisStageIndex] = useState(0);
   const [finalRemedy, setFinalRemedy] = useState({
     potency: '',
     repetition: '',
@@ -82,11 +113,28 @@ export function ClassicalHomeopathyConsultation({
     console.log('Total symptoms received:', symptoms.length);
     console.log('Classical symptoms filtered:', classicalSymptoms.length);
     console.log('Sample symptoms:', symptoms.slice(0, 5).map(s => ({ 
-      name: s.name, 
-      modality: s.modality, 
-      category: s.category 
+      name: s.name,
+      modality: s.modality,
+      category: s.category,
     })));
   }, [symptoms, classicalSymptoms]);
+
+  // Animate rule engine analysis stages while loading
+  useEffect(() => {
+    if (!loading) return;
+
+    setAnalysisStageIndex(0);
+    const interval = window.setInterval(() => {
+      setAnalysisStageIndex((prev) => {
+        const next = prev + 1;
+        return next >= analysisStages.length ? analysisStages.length - 1 : next;
+      });
+    }, 900);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [loading, analysisStages.length]);
 
   const handleAddSymptom = (symptom: SelectedSymptom) => {
     setSelectedSymptoms((prev) => [...prev, symptom]);
@@ -177,7 +225,8 @@ export function ClassicalHomeopathyConsultation({
       );
     } catch (error: any) {
       console.error('Error getting suggestions:', error);
-      toast.error(error.message || 'Failed to get suggestions');
+      // Use centralized API error handler so backend message is shown (not just status code)
+      showError(error, 'Failed to get remedy suggestions');
     } finally {
       setLoading(false);
     }
@@ -390,6 +439,87 @@ export function ClassicalHomeopathyConsultation({
             )}
           </div>
         </div>
+
+        {/* Rule Engine Analysis Progress */}
+        {loading && (
+          <div className="medical-card border-primary/20 bg-gradient-to-br from-primary/5 via-background to-background">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    Classical Homeopathy Rule Engine is analyzing this case
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Please wait while we process symptoms through all clinical steps
+                  </p>
+                </div>
+              </div>
+              <Badge variant="outline" className="text-xs bg-primary/10 text-primary border-primary/20">
+                Step {analysisStageIndex + 1} of {analysisStages.length}
+              </Badge>
+            </div>
+
+            {/* Progress bar */}
+            <div className="mb-3 h-2 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-primary via-primary/80 to-primary/60 transition-all duration-500"
+                style={{
+                  width: `${((analysisStageIndex + 1) / analysisStages.length) * 100}%`,
+                }}
+              />
+            </div>
+
+            {/* Stages list */}
+            <div className="grid gap-2 md:grid-cols-2">
+              {analysisStages.map((stage, index) => {
+                const isActive = index === analysisStageIndex;
+                const isCompleted = index < analysisStageIndex;
+
+                return (
+                  <div
+                    key={stage.key}
+                    className={`flex items-start gap-2 rounded-lg border px-3 py-2 ${
+                      isActive
+                        ? 'border-primary/50 bg-primary/5'
+                        : isCompleted
+                        ? 'border-emerald-500/30 bg-emerald-500/5'
+                        : 'border-border/50 bg-muted/30'
+                    }`}
+                  >
+                    <div className="mt-0.5">
+                      {isCompleted ? (
+                        <CheckCircle className="h-3.5 w-3.5 text-emerald-500" />
+                      ) : isActive ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                      ) : (
+                        <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
+                      )}
+                    </div>
+                    <div>
+                      <p
+                        className={`text-xs font-semibold ${
+                          isActive
+                            ? 'text-foreground'
+                            : isCompleted
+                            ? 'text-emerald-700 dark:text-emerald-400'
+                            : 'text-muted-foreground'
+                        }`}
+                      >
+                        {stage.label}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        {stage.description}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Get Suggestions Button */}
         <Button
