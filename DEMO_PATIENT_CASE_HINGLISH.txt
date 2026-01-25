@@ -1,0 +1,20 @@
+DEMO PATIENT CASE - HINGLISH (For NLP Testing)
+================================================
+
+Patient Case Description:
+
+Mujhe bahut anxiety hoti hai, especially subah 5 baje ke baad. Main bahut restless rehta hoon aur thand bilkul bardasht nahi hoti. Headache right side me hota hai jo morning me worse hota hai. Mera appetite kam hai aur mujhe kuch bhi khane ka mann nahi karta. Thirst bhi bahut kam hai, din bhar ek do glass pani bhi nahi pita. Sleep bhi theek nahi hai, raat ko 2-3 baje tak neend nahi aati aur jab aati hai to bahut restless sleep hoti hai. Cold weather me meri sabhi symptoms aur badh jati hain. Motion se bhi dard badhta hai. Main akela rehna prefer karta hoon, company se irritate ho jata hoon. Mujhe death ka bahut dar lagta hai aur anxiety attacks aate hain jo sudden start hote hain.
+
+---
+
+Alternative Shorter Version (8-10 lines):
+
+Mujhe subah 5 baje ke baad anxiety bahut hoti hai aur main bahut restless rehta hoon. Thand bilkul bardasht nahi hoti aur meri sabhi problems cold weather me aur badh jati hain. Headache right side me hota hai jo morning me worse hota hai. Appetite bilkul kam hai, kuch khane ka mann nahi karta aur thirst bhi bahut kam hai. Sleep bhi theek nahi hai, raat ko 2-3 baje tak neend nahi aati. Motion se dard badhta hai aur main akela rehna prefer karta hoon. Company se irritate ho jata hoon aur mujhe death ka dar lagta hai. Anxiety attacks sudden aate hain.
+
+---
+
+Expected Extracted Symptoms:
+- Mental: Anxiety, Restlessness, Fear of death, Irritability, Aversion to company
+- General: Cold intolerance, Appetite decreased, Thirst decreased, Sleep disturbed
+- Particular: Headache right side
+- Modalities: Worse morning, Worse cold weather, Worse motion, Better being alone

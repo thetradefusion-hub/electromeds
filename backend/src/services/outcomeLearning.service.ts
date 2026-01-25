@@ -64,6 +64,38 @@ export class OutcomeLearningHook {
   }
 
   /**
+   * Update case record with question answers
+   */
+  async updateQuestionAnswers(
+    caseRecordId: mongoose.Types.ObjectId,
+    questionAnswers: Array<{
+      questionId: string;
+      questionText: string;
+      answer: string;
+      domain: string;
+      type: 'yes_no' | 'multiple_choice' | 'open_ended';
+      answeredAt: Date;
+      extractedSymptoms?: Array<{
+        symptomText: string;
+        category: string;
+        confidence: string;
+      }>;
+    }>,
+    questionHistory?: Array<{
+      questionId: string;
+      questionText: string;
+      domain: string;
+      generatedAt: Date;
+      answered: boolean;
+    }>
+  ): Promise<void> {
+    await CaseRecord.findByIdAndUpdate(caseRecordId, {
+      questionAnswers,
+      questionHistory,
+    });
+  }
+
+  /**
    * Update with doctor's final decision
    */
   async updateDoctorDecision(

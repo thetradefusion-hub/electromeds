@@ -12,7 +12,7 @@ const api: AxiosInstance = axios.create({
     // Setting it manually causes "Refused to set unsafe header" warning
   },
   withCredentials: false,
-  timeout: 30000, // 30 seconds timeout
+  timeout: 60000, // 60 seconds timeout (increased for NLP operations)
 });
 
 // Request interceptor - Add auth token

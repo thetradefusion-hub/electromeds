@@ -25,6 +25,7 @@ import medicalReportRoutes from './routes/medicalReport.routes.js';
 import paymentRoutes from './routes/payment.routes.js';
 import aiAnalysisRoutes from './routes/aiAnalysis.routes.js';
 import classicalHomeopathyRoutes from './routes/classicalHomeopathy.routes.js';
+import aiCaseTakingRoutes from './routes/aiCaseTaking.routes.js';
 
 const app: Express = express();
 
@@ -92,6 +93,7 @@ app.use('/api/medical-reports', medicalReportRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/ai', aiAnalysisRoutes);
 app.use('/api/classical-homeopathy', classicalHomeopathyRoutes);
+app.use('/api/ai-case-taking', aiCaseTakingRoutes);
 
 // 404 handler
 app.use((_req: Request, res: Response) => {

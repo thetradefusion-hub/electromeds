@@ -123,6 +123,55 @@ export interface Remedy {
   updatedAt: string;
 }
 
+export interface CaseRecord {
+  _id: string;
+  patientId: string;
+  doctorId: string;
+  structuredCase: {
+    mental: Array<{
+      symptomCode: string;
+      symptomName: string;
+      weight?: number;
+    }>;
+    generals: Array<{
+      symptomCode: string;
+      symptomName: string;
+      weight?: number;
+    }>;
+    particulars: Array<{
+      symptomCode: string;
+      symptomName: string;
+      location?: string;
+      sensation?: string;
+      weight?: number;
+    }>;
+    modalities: Array<{
+      symptomCode: string;
+      symptomName: string;
+      type: 'better' | 'worse';
+      weight?: number;
+    }>;
+    pathologyTags: string[];
+  };
+  finalRemedy: {
+    remedyId: string;
+    remedyName: string;
+    potency: string;
+    repetition: string;
+    notes?: string;
+  } | null;
+  caseSummary?: {
+    clinicalSummary: string;
+    homeopathicSummary: string;
+    keynotes: string[];
+    strangeSymptoms: string[];
+    generatedAt: string;
+    updatedAt?: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
 class ClassicalHomeopathyAPI {
   /**
    * Get all remedies (global + doctor-specific)
@@ -159,6 +208,25 @@ class ClassicalHomeopathyAPI {
     const response = await api.put<ApiResponse<DecisionResponse>>(
       `${API_URL}/case/${caseRecordId}/decision`,
       { finalRemedy }
+    );
+    return response.data;
+  }
+
+  /**
+   * Save case summary to case record
+   */
+  async saveCaseSummary(
+    caseRecordId: string,
+    caseSummary: {
+      clinicalSummary: string;
+      homeopathicSummary: string;
+      keynotes: string[];
+      strangeSymptoms: string[];
+    }
+  ): Promise<ApiResponse<null>> {
+    const response = await api.put<ApiResponse<null>>(
+      `${API_URL}/case/${caseRecordId}/summary`,
+      { caseSummary }
     );
     return response.data;
   }
@@ -203,6 +271,18 @@ class ClassicalHomeopathyAPI {
   ): Promise<ApiResponse<SymptomRemedyPattern[]>> {
     const response = await api.get<ApiResponse<SymptomRemedyPattern[]>>(
       `${API_URL}/statistics/patterns?symptomCode=${symptomCode}`
+    );
+    return response.data;
+  }
+
+  /**
+   * Get all case records for a patient
+   */
+  async getPatientCaseRecords(
+    patientId: string
+  ): Promise<ApiResponse<{ caseRecords: CaseRecord[] }>> {
+    const response = await api.get<ApiResponse<{ caseRecords: CaseRecord[] }>>(
+      `${API_URL}/case/patient/${patientId}`
     );
     return response.data;
   }

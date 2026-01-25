@@ -73,6 +73,36 @@ export interface ICaseRecord extends Document {
   // Outcome tracking
   outcomeStatus: 'pending' | 'improved' | 'no_change' | 'worsened' | 'not_followed';
   followUpNotes?: string;
+  // AI Case Taking metadata
+  questionAnswers?: Array<{
+    questionId: string;
+    questionText: string;
+    answer: string;
+    domain: string;
+    type: 'yes_no' | 'multiple_choice' | 'open_ended';
+    answeredAt: Date;
+    extractedSymptoms?: Array<{
+      symptomText: string;
+      category: string;
+      confidence: string;
+    }>;
+  }>;
+  questionHistory?: Array<{
+    questionId: string;
+    questionText: string;
+    domain: string;
+    generatedAt: Date;
+    answered: boolean;
+  }>;
+  // Case Summary (AI-generated)
+  caseSummary?: {
+    clinicalSummary: string;
+    homeopathicSummary: string;
+    keynotes: string[];
+    strangeSymptoms: string[];
+    generatedAt: Date;
+    updatedAt?: Date;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -200,6 +230,44 @@ const caseRecordSchema = new Schema<ICaseRecord>(
     followUpNotes: {
       type: String,
       trim: true,
+    },
+    questionAnswers: [
+      {
+        questionId: { type: String, required: true },
+        questionText: { type: String, required: true },
+        answer: { type: String, required: true },
+        domain: { type: String, required: true },
+        type: {
+          type: String,
+          enum: ['yes_no', 'multiple_choice', 'open_ended'],
+          required: true,
+        },
+        answeredAt: { type: Date, default: Date.now },
+        extractedSymptoms: [
+          {
+            symptomText: { type: String },
+            category: { type: String },
+            confidence: { type: String },
+          },
+        ],
+      },
+    ],
+    questionHistory: [
+      {
+        questionId: { type: String, required: true },
+        questionText: { type: String, required: true },
+        domain: { type: String, required: true },
+        generatedAt: { type: Date, default: Date.now },
+        answered: { type: Boolean, default: false },
+      },
+    ],
+    caseSummary: {
+      clinicalSummary: { type: String },
+      homeopathicSummary: { type: String },
+      keynotes: { type: [String], default: [] },
+      strangeSymptoms: { type: [String], default: [] },
+      generatedAt: { type: Date, default: Date.now },
+      updatedAt: { type: Date },
     },
   },
   { timestamps: true }

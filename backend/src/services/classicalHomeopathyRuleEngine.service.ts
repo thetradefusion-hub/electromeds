@@ -69,10 +69,28 @@ export class ClassicalHomeopathyRuleEngine {
 
     // Step 3: Rubric Mapping
     const rubricMappings = await this.rubricMapping.mapSymptomsToRubrics(normalizedCase);
-    const selectedRubrics = rubricMappings.filter((r) => r.autoSelected);
+    
+    // Use auto-selected rubrics, or if none, use top rubrics by confidence (>= 20%)
+    let selectedRubrics = rubricMappings.filter((r) => r.autoSelected);
+    
+    // If no auto-selected rubrics, use top rubrics with confidence >= 20%
+    if (selectedRubrics.length === 0) {
+      selectedRubrics = rubricMappings
+        .filter((r) => r.confidence >= 20)
+        .slice(0, 20); // Limit to top 20 rubrics
+      
+      console.log(`[ClassicalHomeopathyRuleEngine] No auto-selected rubrics found. Using ${selectedRubrics.length} rubrics with confidence >= 20%`);
+    }
     
     if (selectedRubrics.length === 0) {
-      throw new Error('NO RUBRICS SELECTED! Could not find matching English rubrics in publicum repertory for given symptoms.');
+      console.error('[ClassicalHomeopathyRuleEngine] No rubrics found at all. Rubric mappings:', rubricMappings.length);
+      console.error('[ClassicalHomeopathyRuleEngine] Normalized case symptoms:', {
+        mental: normalizedCase.mental.map(s => s.symptomName),
+        generals: normalizedCase.generals.map(s => s.symptomName),
+        particulars: normalizedCase.particulars.map(s => s.symptomName),
+        modalities: normalizedCase.modalities.map(s => s.symptomName),
+      });
+      throw new Error('NO RUBRICS SELECTED! Could not find matching English rubrics in publicum repertory for given symptoms. Please ensure symptoms are in English and match repertory terminology.');
     }
 
     // Step 4: Repertory Engine

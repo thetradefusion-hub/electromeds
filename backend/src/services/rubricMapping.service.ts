@@ -20,6 +20,21 @@ export interface RubricMapping {
   confidence: number;
 }
 
+export interface RubricSuggestion {
+  rubricId: mongoose.Types.ObjectId | string;
+  rubricText: string;
+  repertoryType: string;
+  chapter: string;
+  matchScore: number;
+  confidence: 'exact' | 'high' | 'medium' | 'low';
+  relevanceScore: number; // 0-100, based on multiple factors
+  isRare: boolean; // Rare rubric indicator
+  matchedSymptoms: string[];
+  remedyCount?: number; // Number of remedies in this rubric
+  avgGrade?: number; // Average remedy grade in this rubric
+  matchedText?: string; // The text that matched
+}
+
 export class RubricMappingEngine {
   /**
    * Map symptoms to relevant rubrics
@@ -180,7 +195,7 @@ export class RubricMappingEngine {
         repertoryType: rubric.repertoryType,
         chapter: rubric.chapter,
         matchedSymptoms: matchedSymptoms.filter(code => code), // Remove empty strings
-        autoSelected: confidence >= 30, // Lower threshold (30%) for text-based matching to handle German/English mismatch
+        autoSelected: confidence >= 20, // Lower threshold (20%) to be more inclusive
         confidence: Math.min(confidence, 100),
       };
     }).filter(r => r.matchedSymptoms.length > 0); // Only return rubrics with matches
@@ -190,34 +205,287 @@ export class RubricMappingEngine {
   }
 
   /**
-   * Get rubric suggestions for manual selection
+   * Get enhanced rubric suggestions for a symptom with multiple options
+   * Returns ranked rubrics with confidence, relevance, and rare detection
    */
   async suggestRubrics(
     symptomCode: string,
-    repertoryType?: 'kent' | 'bbcr' | 'boericke' | 'synthesis'
-  ): Promise<Array<{
-    rubricId: mongoose.Types.ObjectId;
-    rubricText: string;
-    chapter: string;
-    matchScore: number;
-  }>> {
+    symptomText?: string,
+    repertoryType?: 'kent' | 'bbcr' | 'boericke' | 'synthesis' | 'publicum'
+  ): Promise<RubricSuggestion[]> {
     const query: any = {
-      linkedSymptoms: symptomCode,
       modality: 'classical_homeopathy',
     };
 
     if (repertoryType) {
       query.repertoryType = repertoryType;
+    } else {
+      // Default to publicum (English) if not specified
+      query.repertoryType = 'publicum';
     }
 
-    const rubrics = await Rubric.find(query).lean();
+    // Try linkedSymptoms first (only if not a temporary code)
+    let rubrics: any[] = [];
+    if (symptomCode && !symptomCode.startsWith('TEMP_') && !symptomCode.startsWith('temp_')) {
+      rubrics = await Rubric.find({
+        ...query,
+        linkedSymptoms: { $in: [symptomCode], $ne: [], $exists: true },
+      }).lean();
+    }
 
-    return rubrics.map((rubric) => ({
-      rubricId: rubric._id,
-      rubricText: rubric.rubricText,
-      chapter: rubric.chapter,
-      matchScore: rubric.linkedSymptoms.length, // More symptoms = better match
-    }));
+    // If no rubrics found by linkedSymptoms and symptomText provided, use text matching
+    if (rubrics.length === 0 && symptomText) {
+      const symptomLower = symptomText.toLowerCase().trim();
+      
+      // Try multiple search strategies
+      const searchStrategies: Array<{ pattern: RegExp; limit: number }> = [];
+      
+      // Strategy 1: Exact word match (highest priority)
+      const exactWord = symptomLower.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      searchStrategies.push({ pattern: new RegExp(`\\b${exactWord}\\b`, 'i'), limit: 30 });
+      
+      // Strategy 2: Contains match
+      searchStrategies.push({ pattern: new RegExp(exactWord, 'i'), limit: 20 });
+      
+      // Strategy 3: Partial match (for compound words like "headache" -> "head" + "ache")
+      if (symptomLower.length > 4) {
+        const partial = symptomLower.substring(0, Math.min(6, symptomLower.length));
+        searchStrategies.push({ pattern: new RegExp(partial, 'i'), limit: 10 });
+      }
+      
+      // Execute searches in order until we have enough results
+      const foundRubrics = new Map<string, any>();
+      
+      for (const strategy of searchStrategies) {
+        if (foundRubrics.size >= 50) break;
+        
+        const results = await Rubric.find({
+          ...query,
+          rubricText: strategy.pattern,
+        }).limit(strategy.limit).lean();
+        
+        results.forEach(r => {
+          if (!foundRubrics.has(r._id.toString())) {
+            foundRubrics.set(r._id.toString(), r);
+          }
+        });
+      }
+      
+      rubrics = Array.from(foundRubrics.values());
+      
+      console.log(`[RubricMapping] Found ${rubrics.length} rubrics for symptom "${symptomText}" using text matching`);
+    }
+
+    // Get remedy counts for each rubric (for rarity detection)
+    const RubricRemedy = (await import('../models/RubricRemedy.model.js')).default;
+    const rubricIds = rubrics.map(r => r._id);
+    const remedyCounts = await RubricRemedy.aggregate([
+      {
+        $match: {
+          rubricId: { $in: rubricIds },
+          repertoryType: query.repertoryType,
+        },
+      },
+      {
+        $group: {
+          _id: '$rubricId',
+          count: { $sum: 1 },
+          avgGrade: { $avg: '$grade' },
+        },
+      },
+    ]);
+
+    const remedyCountMap = new Map();
+    remedyCounts.forEach((item) => {
+      remedyCountMap.set(item._id.toString(), {
+        count: item.count,
+        avgGrade: item.avgGrade || 0,
+      });
+    });
+
+    // Score and rank rubrics
+    const suggestions: RubricSuggestion[] = rubrics.map((rubric) => {
+      const remedyInfo = remedyCountMap.get(rubric._id.toString()) || { count: 0, avgGrade: 0 };
+      
+      // Calculate match score
+      let matchScore = 0;
+      let matchedText = '';
+      
+      if (rubric.linkedSymptoms && rubric.linkedSymptoms.includes(symptomCode)) {
+        matchScore = 100; // Exact match via linkedSymptoms
+        matchedText = symptomText || symptomCode;
+      } else if (symptomText) {
+        const rubricTextLower = (rubric.rubricText || '').toLowerCase();
+        const symptomLower = symptomText.toLowerCase();
+        
+        // Exact match
+        if (rubricTextLower === symptomLower) {
+          matchScore = 100;
+          matchedText = symptomText;
+        }
+        // Word boundary match
+        else if (new RegExp(`\\b${symptomLower}\\b`, 'i').test(rubricTextLower)) {
+          matchScore = 90;
+          matchedText = symptomText;
+        }
+        // Contains match
+        else if (rubricTextLower.includes(symptomLower)) {
+          matchScore = 70;
+          matchedText = symptomText;
+        }
+        // Partial match
+        else if (symptomLower.length > 4 && rubricTextLower.includes(symptomLower.substring(0, 4))) {
+          matchScore = 50;
+          matchedText = symptomText;
+        }
+      }
+
+      // Calculate relevance score (combination of match score, remedy count, avg grade)
+      let relevanceScore = matchScore;
+      
+      // Boost for rubrics with more remedies (more comprehensive)
+      if (remedyInfo.count > 0) {
+        const remedyBoost = Math.min(remedyInfo.count / 10, 10); // Max 10 point boost
+        relevanceScore += remedyBoost;
+      }
+      
+      // Boost for higher average grades (more important remedies)
+      if (remedyInfo.avgGrade > 0) {
+        const gradeBoost = Math.min(remedyInfo.avgGrade * 2, 10); // Max 10 point boost
+        relevanceScore += gradeBoost;
+      }
+      
+      relevanceScore = Math.min(relevanceScore, 100);
+
+      // Determine confidence level
+      let confidence: 'exact' | 'high' | 'medium' | 'low';
+      if (matchScore >= 90) confidence = 'exact';
+      else if (matchScore >= 70) confidence = 'high';
+      else if (matchScore >= 50) confidence = 'medium';
+      else confidence = 'low';
+
+      // Detect rare rubrics (few remedies, high average grade, or specific patterns)
+      const isRare = 
+        remedyInfo.count > 0 && remedyInfo.count <= 3 && remedyInfo.avgGrade >= 2.5 ||
+        remedyInfo.count === 0 || // No remedies = rare
+        (rubric.rubricText && /peculiar|strange|rare/i.test(rubric.rubricText));
+
+      return {
+        rubricId: rubric._id,
+        rubricText: rubric.rubricText,
+        repertoryType: rubric.repertoryType,
+        chapter: rubric.chapter,
+        matchScore,
+        confidence,
+        relevanceScore,
+        isRare,
+        matchedSymptoms: rubric.linkedSymptoms || [],
+        remedyCount: remedyInfo.count,
+        avgGrade: remedyInfo.avgGrade,
+        matchedText,
+      };
+    });
+
+    // Sort by relevance score (highest first)
+    return suggestions.sort((a, b) => b.relevanceScore - a.relevanceScore);
+  }
+
+  /**
+   * Get rubric suggestions for an extracted symptom (from AI case taking)
+   */
+  async suggestRubricsForExtractedSymptom(
+    symptom: {
+      symptomCode?: string;
+      symptomName: string;
+      category?: string;
+      location?: string;
+      sensation?: string;
+    },
+    repertoryType?: 'kent' | 'bbcr' | 'boericke' | 'synthesis' | 'publicum'
+  ): Promise<{
+    rubrics: RubricSuggestion[];
+    rareRubrics: RubricSuggestion[];
+  }> {
+    // Build search text from symptom components
+    const searchTerms: string[] = [];
+    
+    // Primary search: symptom name (most important)
+    if (symptom.symptomName) {
+      searchTerms.push(symptom.symptomName);
+    }
+    
+    // Secondary search: location + sensation (for particulars)
+    if (symptom.location && symptom.sensation) {
+      searchTerms.push(`${symptom.location} ${symptom.sensation}`);
+    } else if (symptom.location) {
+      searchTerms.push(symptom.location);
+    } else if (symptom.sensation) {
+      searchTerms.push(symptom.sensation);
+    }
+    
+    // Try multiple search strategies
+    const allSuggestions: RubricSuggestion[] = [];
+    
+    // Strategy 1: Search with full symptom name
+    if (symptom.symptomName) {
+      const suggestions1 = await this.suggestRubrics(
+        symptom.symptomCode || '',
+        symptom.symptomName,
+        repertoryType || 'publicum'
+      );
+      allSuggestions.push(...suggestions1);
+    }
+    
+    // Strategy 2: Search with location + sensation (if available)
+    if (symptom.location && symptom.sensation) {
+      const combinedText = `${symptom.location} ${symptom.sensation}`;
+      const suggestions2 = await this.suggestRubrics(
+        '',
+        combinedText,
+        repertoryType || 'publicum'
+      );
+      // Add only if not already present
+      suggestions2.forEach(s => {
+        if (!allSuggestions.find(existing => existing.rubricId.toString() === s.rubricId.toString())) {
+          allSuggestions.push(s);
+        }
+      });
+    }
+    
+    // Strategy 3: Search individual components if full search didn't work well
+    if (allSuggestions.length < 5) {
+      if (symptom.location) {
+        const suggestions3 = await this.suggestRubrics('', symptom.location, repertoryType || 'publicum');
+        suggestions3.forEach(s => {
+          if (!allSuggestions.find(existing => existing.rubricId.toString() === s.rubricId.toString())) {
+            allSuggestions.push(s);
+          }
+        });
+      }
+    }
+
+    // Remove duplicates and sort by relevance
+    const uniqueSuggestions = new Map<string, RubricSuggestion>();
+    allSuggestions.forEach(s => {
+      const key = s.rubricId.toString();
+      if (!uniqueSuggestions.has(key) || uniqueSuggestions.get(key)!.relevanceScore < s.relevanceScore) {
+        uniqueSuggestions.set(key, s);
+      }
+    });
+    
+    const sortedSuggestions = Array.from(uniqueSuggestions.values())
+      .sort((a, b) => b.relevanceScore - a.relevanceScore);
+
+    // Separate rare rubrics
+    const rareRubrics = sortedSuggestions.filter(r => r.isRare);
+    const regularRubrics = sortedSuggestions.filter(r => !r.isRare);
+
+    console.log(`[RubricMapping] Found ${regularRubrics.length} regular and ${rareRubrics.length} rare rubrics for "${symptom.symptomName}"`);
+
+    return {
+      rubrics: regularRubrics.slice(0, 10), // Top 10 regular rubrics
+      rareRubrics: rareRubrics.slice(0, 5), // Top 5 rare rubrics
+    };
   }
 }
 

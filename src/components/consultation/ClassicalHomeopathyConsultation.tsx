@@ -15,13 +15,19 @@ import {
   Save,
   CheckCircle,
   AlertCircle,
+  FileText,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ClassicalSymptomSelector } from './ClassicalSymptomSelector';
 import { RemedySuggestionsCard } from './RemedySuggestionsCard';
+import { AICaseInput } from './AICaseInput';
+import { CaseCompletenessPanel } from './CaseCompletenessPanel';
+import { SmartQuestionsPanel } from './SmartQuestionsPanel';
+import { CaseSummaryPanel } from './CaseSummaryPanel';
 import { classicalHomeopathyApi, StructuredCaseInput, RemedySuggestion } from '@/lib/api/classicalHomeopathy.api';
 import { Symptom } from '@/hooks/useSymptoms';
 import { useApiError } from '@/hooks/useApiError';
+import { ExtractedSymptom, analyzeCompleteness, generateQuestions, generateQuestionsBatch, CompletenessAnalysis, Question } from '@/lib/api/aiCaseTaking.api';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -34,6 +40,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+
+// Extended symptom type for Classical Homeopathy
+interface ExtendedSymptom extends Symptom {
+  code?: string;
+  synonyms?: string[];
+  location?: string;
+  sensation?: string;
+  modalities?: string[];
+}
 
 interface SelectedSymptom {
   symptomId: string;
@@ -100,6 +115,14 @@ export function ClassicalHomeopathyConsultation({
     repetition: '',
     notes: '',
   });
+  const [inputMode, setInputMode] = useState<'manual' | 'ai'>('manual');
+  const [completenessAnalysis, setCompletenessAnalysis] = useState<CompletenessAnalysis | null>(null);
+  const [generatedQuestions, setGeneratedQuestions] = useState<Question[]>([]);
+  const [showCompleteness, setShowCompleteness] = useState(false);
+  const [showQuestions, setShowQuestions] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
+  const [analyzingCompleteness, setAnalyzingCompleteness] = useState(false);
+  const [generatingQuestions, setGeneratingQuestions] = useState(false);
 
   // Filter symptoms for Classical Homeopathy
   // Allow symptoms with classical_homeopathy modality or symptoms without modality set (for backward compatibility)
@@ -194,6 +217,46 @@ export function ClassicalHomeopathyConsultation({
     };
   };
 
+  // Build normalized case for summary generation (simplified version)
+  const buildNormalizedCase = () => {
+    const structuredCase = buildStructuredCase();
+    const isAcute = pathologyTags.includes('Acute') || pathologyTags.some((tag) => ['Fever', 'Injury', 'Sudden'].includes(tag));
+    const isChronic = pathologyTags.includes('Chronic');
+
+    return {
+      mental: structuredCase.mental.map((s) => ({
+        symptomCode: `TEMP_${Date.now()}_${Math.random()}`,
+        symptomName: s.symptomText,
+        category: 'mental' as const,
+        weight: s.weight || 3,
+      })),
+      generals: structuredCase.generals.map((s) => ({
+        symptomCode: `TEMP_${Date.now()}_${Math.random()}`,
+        symptomName: s.symptomText,
+        category: 'general' as const,
+        weight: s.weight || 2,
+      })),
+      particulars: structuredCase.particulars.map((s) => ({
+        symptomCode: `TEMP_${Date.now()}_${Math.random()}`,
+        symptomName: s.symptomText,
+        category: 'particular' as const,
+        location: s.location,
+        sensation: s.sensation,
+        weight: s.weight || 1,
+      })),
+      modalities: structuredCase.modalities.map((s) => ({
+        symptomCode: `TEMP_${Date.now()}_${Math.random()}`,
+        symptomName: s.symptomText,
+        category: 'modality' as const,
+        type: s.type || 'worse',
+        weight: s.weight || 1.5,
+      })),
+      pathologyTags,
+      isAcute,
+      isChronic,
+    };
+  };
+
   const handleGetSuggestions = async () => {
     if (selectedSymptoms.length === 0) {
       toast.error('Please add at least one symptom');
@@ -239,6 +302,158 @@ export function ClassicalHomeopathyConsultation({
       repetition: remedy.repetition,
       notes: '',
     });
+  };
+
+  const handleAnalyzeCompleteness = async () => {
+    if (selectedSymptoms.length === 0) {
+      toast.error('Please add at least one symptom before analyzing completeness');
+      return;
+    }
+
+    setAnalyzingCompleteness(true);
+    try {
+      const structuredCase = buildStructuredCase();
+      const analysis = await analyzeCompleteness(structuredCase);
+      setCompletenessAnalysis(analysis);
+      setShowCompleteness(true);
+      toast.success(`Case completeness: ${analysis.completenessScore}%`);
+    } catch (error: any) {
+      console.error('Error analyzing completeness:', error);
+      showError(error, 'Failed to analyze case completeness');
+    } finally {
+      setAnalyzingCompleteness(false);
+    }
+  };
+
+  const handleGenerateQuestions = async (domain?: string) => {
+    if (selectedSymptoms.length === 0 && !domain) {
+      toast.error('Please add at least one symptom before generating questions');
+      return;
+    }
+
+    setGeneratingQuestions(true);
+    try {
+      const structuredCase = buildStructuredCase();
+      const result = await generateQuestions(structuredCase, domain);
+      setGeneratedQuestions(result.questions);
+      setShowQuestions(true);
+      toast.success(`Generated ${result.questions.length} smart questions`);
+    } catch (error: any) {
+      console.error('Error generating questions:', error);
+      showError(error, 'Failed to generate questions');
+    } finally {
+      setGeneratingQuestions(false);
+    }
+  };
+
+  const [questionAnswers, setQuestionAnswers] = useState<Array<{ question: Question; answer: string }>>([]);
+  const [questionHistory, setQuestionHistory] = useState<Question[]>([]);
+
+  const handleQuestionAnswer = (questionId: string, answer: string, question: Question) => {
+    // Store answer
+    setQuestionAnswers((prev) => {
+      const filtered = prev.filter((qa) => qa.question.id !== questionId);
+      return [...filtered, { question, answer }];
+    });
+  };
+
+  const handleQuestionsComplete = async (allAnswers: Array<{ question: Question; answer: string }>) => {
+    setQuestionAnswers(allAnswers);
+    toast.success(`Recorded ${allAnswers.length} question answers`);
+  };
+
+  const handleSymptomsExtracted = async (extractedSymptoms: any[]) => {
+    console.log('[ClassicalHomeopathyConsultation] handleSymptomsExtracted called with:', extractedSymptoms);
+    
+    if (!extractedSymptoms || extractedSymptoms.length === 0) {
+      console.warn('[ClassicalHomeopathyConsultation] No symptoms to add');
+      return;
+    }
+
+    // Convert extracted symptoms to SelectedSymptom format
+    const newSymptoms: SelectedSymptom[] = extractedSymptoms.map((extracted) => {
+      console.log('[ClassicalHomeopathyConsultation] Processing extracted symptom:', extracted);
+      
+      const existingSymptom = classicalSymptoms.find(
+        (s) => s.name.toLowerCase() === extracted.symptomText.toLowerCase()
+      );
+      
+      if (existingSymptom) {
+        console.log('[ClassicalHomeopathyConsultation] Found existing symptom:', existingSymptom.name);
+        return {
+          symptomId: existingSymptom.id,
+          symptom: existingSymptom as ExtendedSymptom,
+          category: extracted.category,
+          location: extracted.location,
+          sensation: extracted.sensation,
+          type: extracted.type || (extracted.category === 'modality' ? 'worse' : undefined),
+          weight: extracted.weight || (extracted.category === 'mental' ? 3 : extracted.category === 'general' ? 2 : 1),
+        };
+      } else {
+        // Create temporary symptom
+        console.log('[ClassicalHomeopathyConsultation] Creating new symptom:', extracted.symptomText);
+        const tempSymptom: ExtendedSymptom = {
+          id: `temp-${Date.now()}-${Math.random()}`,
+          code: extracted.source || '',
+          name: extracted.symptomText,
+          category: extracted.category,
+          modality: 'classical_homeopathy',
+          synonyms: [],
+          is_global: true,
+          description: null,
+          doctor_id: null,
+          created_at: new Date().toISOString(),
+        };
+        return {
+          symptomId: tempSymptom.id,
+          symptom: tempSymptom,
+          category: extracted.category,
+          location: extracted.location,
+          sensation: extracted.sensation,
+          type: extracted.type || (extracted.category === 'modality' ? 'worse' : undefined),
+          weight: extracted.weight || (extracted.category === 'mental' ? 3 : extracted.category === 'general' ? 2 : 1),
+        };
+      }
+    });
+
+    console.log('[ClassicalHomeopathyConsultation] Converted symptoms:', newSymptoms);
+
+    // Add to selected symptoms
+    setSelectedSymptoms((prev) => {
+      const existingIds = new Set(prev.map((s) => s.symptomId));
+      const uniqueNew = newSymptoms.filter((s) => !existingIds.has(s.symptomId));
+      console.log('[ClassicalHomeopathyConsultation] Adding symptoms. Existing:', prev.length, 'New unique:', uniqueNew.length);
+      return [...prev, ...uniqueNew];
+    });
+
+    toast.success(`Added ${newSymptoms.length} symptoms from question answers`);
+  };
+
+  const handleGenerateQuestionsBatch = async () => {
+    if (selectedSymptoms.length === 0) {
+      toast.error('Please add at least one symptom before generating questions');
+      return;
+    }
+
+    setGeneratingQuestions(true);
+    try {
+      const structuredCase = buildStructuredCase();
+      const analysis = await analyzeCompleteness(structuredCase);
+      
+      // Generate questions for all missing domains
+      const missingDomains = analysis.missingDomains.map((d) => d.domain);
+      const result = await generateQuestionsBatch(structuredCase, missingDomains);
+      
+      setGeneratedQuestions(result.questions);
+      setQuestionHistory(result.questions);
+      setShowQuestions(true);
+      toast.success(`Generated ${result.questions.length} questions for ${missingDomains.length} domains`);
+    } catch (error: any) {
+      console.error('Error generating questions batch:', error);
+      showError(error, 'Failed to generate questions batch');
+    } finally {
+      setGeneratingQuestions(false);
+    }
   };
 
   const handleSaveDecision = async () => {
@@ -334,20 +549,110 @@ export function ClassicalHomeopathyConsultation({
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold text-foreground flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            Structured Case Entry
+            Case Entry
           </h2>
-          <Badge variant="outline" className="text-sm">
-            {selectedSymptoms.length} {selectedSymptoms.length === 1 ? 'Symptom' : 'Symptoms'}
-            {classicalSymptoms.length > 0 && (
-              <span className="ml-2 text-xs text-muted-foreground">
-                ({classicalSymptoms.length} available)
-              </span>
-            )}
-          </Badge>
+          <div className="flex items-center gap-3">
+            <Badge variant="outline" className="text-sm">
+              {selectedSymptoms.length} {selectedSymptoms.length === 1 ? 'Symptom' : 'Symptoms'}
+              {classicalSymptoms.length > 0 && (
+                <span className="ml-2 text-xs text-muted-foreground">
+                  ({classicalSymptoms.length} available)
+                </span>
+              )}
+            </Badge>
+            <div className="flex items-center gap-2 border rounded-lg p-1">
+              <Button
+                type="button"
+                variant={inputMode === 'manual' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setInputMode('manual')}
+                className="h-7 text-xs"
+              >
+                Manual
+              </Button>
+              <Button
+                type="button"
+                variant={inputMode === 'ai' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setInputMode('ai')}
+                className="h-7 text-xs"
+              >
+                AI Input
+              </Button>
+            </div>
+          </div>
         </div>
 
-        {/* Symptom Categories */}
-        <div className="grid gap-4 lg:grid-cols-2">
+        {/* AI Case Input Mode */}
+        {inputMode === 'ai' && (
+          <div className="medical-card border-primary/20 bg-gradient-to-br from-primary/5 via-background to-background">
+            <AICaseInput
+              onSymptomsConfirmed={(extractedSymptoms) => {
+                // Convert extracted symptoms to SelectedSymptom format
+                const newSymptoms: SelectedSymptom[] = extractedSymptoms.map((extracted) => {
+                  // Find matching symptom from database or create a temporary one
+                  const existingSymptom = classicalSymptoms.find(
+                    (s) => s.code === extracted.symptomCode
+                  );
+
+                  if (existingSymptom) {
+                    return {
+                      symptomId: existingSymptom.id,
+                      symptom: existingSymptom,
+                      category: extracted.category,
+                      location: extracted.location,
+                      sensation: extracted.sensation,
+                      type: extracted.category === 'modality' ? 'worse' : undefined,
+                      weight: extracted.category === 'mental' ? 3 : extracted.category === 'general' ? 2 : 1,
+                    };
+                  } else {
+                    // Create a temporary symptom object for symptoms not in database
+                    const tempSymptom: ExtendedSymptom = {
+                      id: extracted.symptomCode,
+                      code: extracted.symptomCode,
+                      name: extracted.symptomName,
+                      category: extracted.category,
+                      modality: 'classical_homeopathy',
+                      synonyms: [],
+                      is_global: true,
+                      description: null,
+                      doctor_id: null,
+                      created_at: new Date().toISOString(),
+                    };
+
+                    return {
+                      symptomId: extracted.symptomCode,
+                      symptom: tempSymptom,
+                      category: extracted.category,
+                      location: extracted.location,
+                      sensation: extracted.sensation,
+                      type: extracted.category === 'modality' ? 'worse' : undefined,
+                      weight: extracted.category === 'mental' ? 3 : extracted.category === 'general' ? 2 : 1,
+                    };
+                  }
+                });
+
+                // Add to selected symptoms (avoid duplicates)
+                setSelectedSymptoms((prev) => {
+                  const existingIds = new Set(prev.map((s) => s.symptomId));
+                  const uniqueNew = newSymptoms.filter((s) => !existingIds.has(s.symptomId));
+                  const added = [...prev, ...uniqueNew];
+                  return added;
+                });
+
+                const existingIds = new Set(selectedSymptoms.map((s) => s.symptomId));
+                const uniqueNew = newSymptoms.filter((s) => !existingIds.has(s.symptomId));
+                toast.success(`Added ${uniqueNew.length} symptoms from AI extraction`);
+              }}
+            />
+          </div>
+        )}
+
+        {/* Manual Symptom Selection Mode */}
+        {inputMode === 'manual' && (
+          <>
+            {/* Symptom Categories */}
+            <div className="grid gap-4 lg:grid-cols-2">
           <ClassicalSymptomSelector
             symptoms={classicalSymptoms}
             selectedSymptoms={selectedSymptoms}
@@ -521,26 +826,150 @@ export function ClassicalHomeopathyConsultation({
           </div>
         )}
 
-        {/* Get Suggestions Button */}
-        <Button
-          onClick={handleGetSuggestions}
-          disabled={loading || selectedSymptoms.length === 0}
-          className="w-full"
-          size="lg"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Analyzing Case...
-            </>
-          ) : (
-            <>
-              <Sparkles className="mr-2 h-4 w-4" />
-              Get Remedy Suggestions
-            </>
-          )}
-        </Button>
+        {/* Case Analysis Actions */}
+        <div className="flex gap-2">
+          <Button
+            onClick={handleAnalyzeCompleteness}
+            disabled={analyzingCompleteness || selectedSymptoms.length === 0}
+            variant="outline"
+            className="flex-1"
+          >
+            {analyzingCompleteness ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Check Completeness
+              </>
+            )}
+          </Button>
+          <Button
+            onClick={() => handleGenerateQuestions()}
+            disabled={generatingQuestions || selectedSymptoms.length === 0}
+            variant="outline"
+            className="flex-1"
+          >
+            {generatingQuestions ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Sparkles className="mr-2 h-4 w-4" />
+                Generate Questions
+              </>
+            )}
+          </Button>
+          <Button
+            onClick={handleGenerateQuestionsBatch}
+            disabled={generatingQuestions || selectedSymptoms.length === 0}
+            variant="outline"
+            className="flex-1"
+            title="Generate questions for all missing domains at once"
+          >
+            {generatingQuestions ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Brain className="mr-2 h-4 w-4" />
+                Batch Generate
+              </>
+            )}
+          </Button>
+        </div>
+
+        {/* Case Completeness Panel */}
+        {showCompleteness && completenessAnalysis && (
+          <div className="border-t pt-4">
+            <CaseCompletenessPanel
+              analysis={completenessAnalysis}
+              onGenerateQuestions={(domain) => handleGenerateQuestions(domain)}
+            />
+          </div>
+        )}
+
+        {/* Smart Questions Panel */}
+        {showQuestions && generatedQuestions.length > 0 && (
+          <div className="border-t pt-4">
+            <SmartQuestionsPanel
+              questions={generatedQuestions}
+              onAnswer={handleQuestionAnswer}
+              onComplete={handleQuestionsComplete}
+              autoAddSymptoms={true}
+              onSymptomsExtracted={(symptoms) => {
+                console.log('[ClassicalHomeopathyConsultation] Symptoms extracted from answers:', symptoms);
+                handleSymptomsExtracted(symptoms);
+              }}
+            />
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div className="flex gap-2">
+          <Button
+            onClick={() => setShowSummary(!showSummary)}
+            disabled={selectedSymptoms.length === 0}
+            variant="outline"
+            className="flex-1"
+            size="lg"
+          >
+            <FileText className="mr-2 h-4 w-4" />
+            {showSummary ? 'Hide Summary' : 'Generate Summary'}
+          </Button>
+          <Button
+            onClick={handleGetSuggestions}
+            disabled={loading || selectedSymptoms.length === 0}
+            className="flex-1"
+            size="lg"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Analyzing...
+              </>
+            ) : (
+              <>
+                <Sparkles className="mr-2 h-4 w-4" />
+                Get Remedy Suggestions
+              </>
+            )}
+          </Button>
+        </div>
+          </>
+        )}
       </div>
+
+      {/* Case Summary Panel */}
+      {showSummary && selectedSymptoms.length > 0 && (
+        <div className="space-y-4 border-t pt-4">
+          <CaseSummaryPanel
+            structuredCase={buildStructuredCase()}
+            normalizedCase={buildNormalizedCase()}
+            onSave={async (summary) => {
+              if (!caseRecordId) {
+                toast.error('Please generate remedy suggestions first to create a case record');
+                return;
+              }
+              try {
+                await classicalHomeopathyApi.saveCaseSummary(caseRecordId, summary);
+                console.log('[ClassicalHomeopathyConsultation] Case summary saved:', summary);
+                toast.success('Case summary saved to patient history');
+              } catch (error: any) {
+                console.error('Error saving case summary:', error);
+                toast.error(error.message || 'Failed to save case summary');
+              }
+            }}
+            onClose={() => setShowSummary(false)}
+          />
+        </div>
+      )}
 
       {/* Remedy Suggestions */}
       {suggestions.length > 0 && (

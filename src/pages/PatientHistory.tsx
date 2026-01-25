@@ -4,9 +4,10 @@ import { MainLayout } from '@/components/layout/MainLayout';
 import { patientApi } from '@/lib/api/patient.api';
 import { prescriptionApi } from '@/lib/api/prescription.api';
 import { doctorApi } from '@/lib/api/doctor.api';
+import { classicalHomeopathyApi, CaseRecord } from '@/lib/api/classicalHomeopathy.api';
 import { useAuth } from '@/hooks/useAuth';
 import { format } from 'date-fns';
-import { 
+import {
   Loader2, 
   User, 
   Phone, 
@@ -27,6 +28,8 @@ import {
   FileImage,
   CheckCircle,
   AlertTriangle,
+  Sparkles,
+  Star,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -123,9 +126,11 @@ export default function PatientHistory() {
   
   const [patient, setPatient] = useState<Patient | null>(null);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
+  const [caseRecords, setCaseRecords] = useState<CaseRecord[]>([]);
   const [medicalReports, setMedicalReports] = useState<MedicalReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [expandedCaseRecords, setExpandedCaseRecords] = useState<Set<string>>(new Set());
   const [expandedReports, setExpandedReports] = useState<Set<string>>(new Set());
   const [doctorInfo, setDoctorInfo] = useState<{
     name: string;
@@ -203,6 +208,17 @@ export default function PatientHistory() {
               created_at: rx.createdAt,
             }));
           setPrescriptions(patientPrescriptions);
+        }
+
+        // Fetch case records for this patient (Classical Homeopathy)
+        try {
+          const caseRecordsRes = await classicalHomeopathyApi.getPatientCaseRecords(patientId);
+          if (caseRecordsRes.success && caseRecordsRes.data) {
+            setCaseRecords(caseRecordsRes.data.caseRecords);
+          }
+        } catch (error) {
+          console.error('Error fetching case records:', error);
+          // Not all patients may have case records, so this is not critical
         }
 
         // Medical reports - TODO: Implement backend API for medical reports
@@ -323,6 +339,18 @@ export default function PatientHistory() {
         next.delete(id);
       } else {
         next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleCaseRecordExpand = (caseRecordId: string) => {
+    setExpandedCaseRecords((prev) => {
+      const next = new Set(prev);
+      if (next.has(caseRecordId)) {
+        next.delete(caseRecordId);
+      } else {
+        next.add(caseRecordId);
       }
       return next;
     });
@@ -494,6 +522,195 @@ export default function PatientHistory() {
           </Button>
         </div>
       </div>
+
+      {/* Case Records Section (Classical Homeopathy) */}
+      {caseRecords.length > 0 && (
+        <div className="mb-8">
+          <h3 className="mb-4 flex items-center gap-2 text-lg font-semibold text-foreground">
+            <Sparkles className="h-5 w-5 text-primary" />
+            Case Records & Summaries ({caseRecords.length})
+          </h3>
+          <div className="space-y-4">
+            {caseRecords.map((caseRecord) => (
+              <div
+                key={caseRecord._id}
+                className="rounded-xl border border-border bg-card overflow-hidden"
+              >
+                <div
+                  className="flex cursor-pointer items-center justify-between p-4 hover:bg-muted/30"
+                  onClick={() => toggleCaseRecordExpand(caseRecord._id)}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+                      <FileText className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">
+                        Case Record - {format(new Date(caseRecord.createdAt), 'dd MMM yyyy')}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {caseRecord.finalRemedy
+                          ? `Remedy: ${caseRecord.finalRemedy.remedyName} (${caseRecord.finalRemedy.potency})`
+                          : 'No remedy selected yet'}
+                        {caseRecord.caseSummary && ' • Summary available'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {caseRecord.caseSummary && (
+                      <Badge variant="outline" className="border-green-500 text-green-600">
+                        Summary
+                      </Badge>
+                    )}
+                    {expandedCaseRecords.has(caseRecord._id) ? (
+                      <ChevronUp className="h-5 w-5 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                    )}
+                  </div>
+                </div>
+
+                {expandedCaseRecords.has(caseRecord._id) && (
+                  <div className="border-t border-border p-4 space-y-4">
+                    {/* Case Summary */}
+                    {caseRecord.caseSummary ? (
+                      <div className="space-y-4">
+                        {/* Clinical Summary */}
+                        <div>
+                          <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold text-blue-600">
+                            <FileText className="h-4 w-4" />
+                            Clinical Summary
+                          </h4>
+                          <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 p-3">
+                            <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                              {caseRecord.caseSummary.clinicalSummary}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Homeopathic Summary */}
+                        <div>
+                          <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold text-purple-600">
+                            <Sparkles className="h-4 w-4" />
+                            Homeopathic Summary
+                          </h4>
+                          <div className="rounded-lg border border-purple-200 bg-purple-50 dark:bg-purple-950/20 p-3">
+                            <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                              {caseRecord.caseSummary.homeopathicSummary}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Keynotes */}
+                        {caseRecord.caseSummary.keynotes && caseRecord.caseSummary.keynotes.length > 0 && (
+                          <div>
+                            <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold text-yellow-600">
+                              <Star className="h-4 w-4" />
+                              Keynotes ({caseRecord.caseSummary.keynotes.length})
+                            </h4>
+                            <div className="flex flex-wrap gap-2">
+                              {caseRecord.caseSummary.keynotes.map((keynote, idx) => (
+                                <Badge
+                                  key={idx}
+                                  variant="outline"
+                                  className="bg-yellow-50 dark:bg-yellow-950/20 border-yellow-300 dark:border-yellow-700 text-yellow-800 dark:text-yellow-200"
+                                >
+                                  {keynote}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Strange/Rare/Peculiar Symptoms */}
+                        {caseRecord.caseSummary.strangeSymptoms &&
+                          caseRecord.caseSummary.strangeSymptoms.length > 0 && (
+                            <div>
+                              <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold text-orange-600">
+                                <AlertTriangle className="h-4 w-4" />
+                                Strange, Rare, Peculiar Symptoms (
+                                {caseRecord.caseSummary.strangeSymptoms.length})
+                              </h4>
+                              <div className="flex flex-wrap gap-2">
+                                {caseRecord.caseSummary.strangeSymptoms.map((symptom, idx) => (
+                                  <Badge
+                                    key={idx}
+                                    variant="outline"
+                                    className="bg-orange-50 dark:bg-orange-950/20 border-orange-300 dark:border-orange-700 text-orange-800 dark:text-orange-200"
+                                  >
+                                    {symptom}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                        {/* Summary Metadata */}
+                        <div className="pt-2 border-t border-border">
+                          <p className="text-xs text-muted-foreground">
+                            Generated: {format(new Date(caseRecord.caseSummary.generatedAt), 'dd MMM yyyy • hh:mm a')}
+                            {caseRecord.caseSummary.updatedAt &&
+                              ` • Updated: ${format(new Date(caseRecord.caseSummary.updatedAt), 'dd MMM yyyy • hh:mm a')}`}
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-sm text-muted-foreground">
+                        No case summary available for this record.
+                      </div>
+                    )}
+
+                    {/* Case Details */}
+                    <div className="pt-4 border-t border-border">
+                      <h4 className="mb-2 text-sm font-semibold text-foreground">Case Details</h4>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Mental Symptoms:</span>
+                          <span className="ml-2 font-medium">
+                            {caseRecord.structuredCase?.mental?.length || 0}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">General Symptoms:</span>
+                          <span className="ml-2 font-medium">
+                            {caseRecord.structuredCase?.generals?.length || 0}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Particular Symptoms:</span>
+                          <span className="ml-2 font-medium">
+                            {caseRecord.structuredCase?.particulars?.length || 0}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Modalities:</span>
+                          <span className="ml-2 font-medium">
+                            {caseRecord.structuredCase?.modalities?.length || 0}
+                          </span>
+                        </div>
+                      </div>
+                      {caseRecord.finalRemedy && (
+                        <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                          <p className="text-sm">
+                            <span className="font-semibold">Final Remedy:</span>{' '}
+                            {caseRecord.finalRemedy.remedyName} ({caseRecord.finalRemedy.potency}) -{' '}
+                            {caseRecord.finalRemedy.repetition}
+                            {caseRecord.finalRemedy.notes && (
+                              <span className="block mt-1 text-muted-foreground">
+                                Notes: {caseRecord.finalRemedy.notes}
+                              </span>
+                            )}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Medical Reports Section */}
       {medicalReports.length > 0 && (

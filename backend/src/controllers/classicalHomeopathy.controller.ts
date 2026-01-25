@@ -290,6 +290,92 @@ export const updateDoctorDecision = async (
 };
 
 /**
+ * @route   PUT /api/classical-homeopathy/case/:id/summary
+ * @desc    Save case summary to case record
+ * @access  Private (Doctor only)
+ */
+export const saveCaseSummary = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const userId = req.user!.id;
+    const { id } = req.params;
+    const { caseSummary } = req.body;
+
+    // Validation
+    if (!caseSummary) {
+      res.status(400).json({
+        success: false,
+        message: 'Case summary is required',
+      });
+      return;
+    }
+
+    if (!caseSummary.clinicalSummary || !caseSummary.homeopathicSummary) {
+      res.status(400).json({
+        success: false,
+        message: 'Clinical summary and homeopathic summary are required',
+      });
+      return;
+    }
+
+    // Get doctor
+    const doctor = await Doctor.findOne({ userId });
+    if (!doctor) {
+      res.status(404).json({
+        success: false,
+        message: 'Doctor not found',
+      });
+      return;
+    }
+
+    // Get case record
+    const caseRecord = await CaseRecord.findById(id);
+    if (!caseRecord) {
+      res.status(404).json({
+        success: false,
+        message: 'Case record not found',
+      });
+      return;
+    }
+
+    // Verify doctor owns this case
+    if (caseRecord.doctorId.toString() !== doctor._id.toString()) {
+      res.status(403).json({
+        success: false,
+        message: 'You do not have permission to update this case record',
+      });
+      return;
+    }
+
+    // Update case summary
+    caseRecord.caseSummary = {
+      clinicalSummary: caseSummary.clinicalSummary,
+      homeopathicSummary: caseSummary.homeopathicSummary,
+      keynotes: caseSummary.keynotes || [],
+      strangeSymptoms: caseSummary.strangeSymptoms || [],
+      generatedAt: caseRecord.caseSummary?.generatedAt || new Date(),
+      updatedAt: new Date(),
+    };
+
+    await caseRecord.save();
+
+    res.json({
+      success: true,
+      message: 'Case summary saved successfully',
+      data: {
+        caseRecord,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error in saveCaseSummary:', error);
+    next(error);
+  }
+};
+
+/**
  * @route   PUT /api/classical-homeopathy/case/:id/outcome
  * @desc    Update case outcome status
  * @access  Private (Doctor only)
@@ -407,6 +493,106 @@ export const getRemedies = async (
       data: remedies,
     });
   } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @route   PUT /api/classical-homeopathy/case/:id/question-answers
+ * @desc    Update case record with question answers and history
+ * @access  Private (Doctor only)
+ */
+export const updateQuestionAnswers = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const userId = req.user!.id;
+    const { id } = req.params;
+    const { questionAnswers, questionHistory } = req.body;
+
+    // Verify case record exists and belongs to doctor
+    const caseRecord = await CaseRecord.findOne({
+      _id: id,
+      doctorId: userId,
+    });
+
+    if (!caseRecord) {
+      res.status(404).json({
+        success: false,
+        message: 'Case record not found',
+      });
+      return;
+    }
+
+    // Update question answers
+    const outcomeHook = new OutcomeLearningHook();
+    await outcomeHook.updateQuestionAnswers(
+      new mongoose.Types.ObjectId(id),
+      questionAnswers || [],
+      questionHistory || []
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Question answers updated successfully',
+    });
+  } catch (error: any) {
+    console.error('❌ Error in updateQuestionAnswers:', error);
+    next(error);
+  }
+};
+
+/**
+ * @route   GET /api/classical-homeopathy/case/patient/:patientId
+ * @desc    Get all case records for a patient
+ * @access  Private (Doctor only)
+ */
+export const getPatientCaseRecords = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const userId = req.user!.id;
+    const { patientId } = req.params;
+
+    // Validation
+    if (!patientId) {
+      res.status(400).json({
+        success: false,
+        message: 'Patient ID is required',
+      });
+      return;
+    }
+
+    // Get doctor
+    const doctor = await Doctor.findOne({ userId });
+    if (!doctor) {
+      res.status(404).json({
+        success: false,
+        message: 'Doctor not found',
+      });
+      return;
+    }
+
+    // Get case records for this patient
+    const caseRecords = await CaseRecord.find({
+      patientId: new mongoose.Types.ObjectId(patientId),
+      doctorId: doctor._id,
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({
+      success: true,
+      data: {
+        caseRecords,
+      },
+    });
+  } catch (error: any) {
+    console.error('Error in getPatientCaseRecords:', error);
     next(error);
   }
 };

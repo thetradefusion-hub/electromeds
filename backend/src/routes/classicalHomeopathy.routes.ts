@@ -10,7 +10,10 @@ import {
   getRemedies,
   suggestRemedies,
   updateDoctorDecision,
+  saveCaseSummary,
+  getPatientCaseRecords,
   updateOutcome,
+  updateQuestionAnswers,
   getRemedyStatistics,
   getSymptomRemedyPatterns,
 } from '../controllers/classicalHomeopathy.controller.js';
@@ -104,8 +107,11 @@ const updateOutcomeValidation = [
 // Routes
 router.get('/remedies', getRemedies);
 router.post('/suggest', suggestValidation, suggestRemedies);
+router.get('/case/patient/:patientId', getPatientCaseRecords);
 router.put('/case/:id/decision', updateDecisionValidation, updateDoctorDecision);
+router.put('/case/:id/summary', saveCaseSummary);
 router.put('/case/:id/outcome', updateOutcomeValidation, updateOutcome);
+router.put('/case/:id/question-answers', updateQuestionAnswers);
 router.get('/statistics/remedy/:id', getRemedyStatistics);
 router.get('/statistics/patterns', [
   query('symptomCode')

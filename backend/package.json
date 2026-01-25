@@ -18,6 +18,7 @@
     "seed:oorep": "tsx src/scripts/seedFromOorep.ts",
     "seed:oorep:file": "tsx src/scripts/seedFromOorep.ts --file=../oorep.sql",
     "verify:oorep": "tsx src/scripts/verifyOorepSeeding.ts",
+    "extract:symptoms": "tsx src/scripts/extractSymptomsFromRubrics.ts",
     "test:classical-flow": "tsx src/scripts/testClassicalHomeopathyFlow.ts",
     "test:remedy-flow": "tsx src/scripts/testClassicalRemedyFlow.ts",
     "clear:classical": "tsx src/scripts/clearClassicalData.ts",
@@ -51,6 +52,7 @@
     "mongoose": "^8.0.3",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
+    "openai": "^6.16.0",
     "pg": "^8.11.3"
   },
   "devDependencies": {
