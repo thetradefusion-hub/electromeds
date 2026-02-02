@@ -35,6 +35,7 @@
 }
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&display=swap');
 
 /* Smooth Scroll Behavior */
 html {
@@ -383,11 +384,11 @@ html {
     animation: gradient 3s ease infinite;
   }
 
-  /* Scroll Animation Classes */
+  /* Premium Scroll Animation - Three.js enhanced feel */
   .scroll-animate {
     opacity: 0;
-    transform: translateY(30px);
-    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+    transform: translateY(28px);
+    transition: opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1), transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .scroll-animate.animate-in {
@@ -397,8 +398,8 @@ html {
 
   .scroll-animate-left {
     opacity: 0;
-    transform: translateX(-30px);
-    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+    transform: translateX(-32px);
+    transition: opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1), transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .scroll-animate-left.animate-in {
@@ -408,8 +409,8 @@ html {
 
   .scroll-animate-right {
     opacity: 0;
-    transform: translateX(30px);
-    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+    transform: translateX(32px);
+    transition: opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1), transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .scroll-animate-right.animate-in {
@@ -419,13 +420,29 @@ html {
 
   .scroll-animate-scale {
     opacity: 0;
-    transform: scale(0.9);
-    transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+    transform: scale(0.94) translateY(16px);
+    transition: opacity 0.9s cubic-bezier(0.22, 1, 0.36, 1), transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
   }
 
   .scroll-animate-scale.animate-in {
     opacity: 1;
-    transform: scale(1);
+    transform: scale(1) translateY(0);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .scroll-animate,
+    .scroll-animate-left,
+    .scroll-animate-right,
+    .scroll-animate-scale {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+  }
+
+  /* Premium landing section spacing - mobile first */
+  .section-padding {
+    @apply py-16 sm:py-20 lg:py-28 xl:py-36;
   }
 
   .scroll-animate-delay-100 {

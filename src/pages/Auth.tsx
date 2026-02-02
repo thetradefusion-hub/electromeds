@@ -259,7 +259,7 @@ const Auth = () => {
               <Stethoscope className="h-8 w-8 text-white" />
             </div>
           </div>
-          <CardTitle className="text-xl sm:text-2xl font-bold">ElectroMed</CardTitle>
+          <CardTitle className="text-xl sm:text-2xl font-bold">Homeolytics</CardTitle>
           <CardDescription className="text-sm">Clinical Management & Prescription Software</CardDescription>
         </CardHeader>
         <CardContent className="px-4 sm:px-6">

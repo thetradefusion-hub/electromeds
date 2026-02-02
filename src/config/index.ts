@@ -15,7 +15,7 @@ export const env = {
 
 // App configuration
 export const appConfig = {
-  name: 'ElectroMed',
+  name: 'Homeolytics',
   version: '1.0.0',
   description: 'Electro Homeopathy Clinical Management System',
   defaultLanguage: 'en',
