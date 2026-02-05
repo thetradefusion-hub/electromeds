@@ -80,10 +80,12 @@ describe('Scoring Engine Service', () => {
       const selectedRubrics = [
         {
           rubricId: remedyPool.get(testRemedy._id.toString())!.rubricGrades[0].rubricId,
+          rubricText: 'High fever rubric',
           matchedSymptoms: ['SYM_FEVER_001'], // Matches general symptom
         },
         {
           rubricId: remedyPool.get(testRemedy._id.toString())!.rubricGrades[1].rubricId,
+          rubricText: 'Anxiety rubric',
           matchedSymptoms: ['SYM_ANXIETY_001'], // Matches mental symptom
         },
       ];
@@ -124,6 +126,7 @@ describe('Scoring Engine Service', () => {
       const selectedRubrics = [
         {
           rubricId: remedyPool.get(testRemedy._id.toString())!.rubricGrades[0].rubricId,
+          rubricText: 'Anxiety rubric',
           matchedSymptoms: ['SYM_ANXIETY_001'],
         },
       ];
@@ -166,6 +169,7 @@ describe('Scoring Engine Service', () => {
       const selectedRubrics = [
         {
           rubricId: remedyPool.get(testRemedy._id.toString())!.rubricGrades[0].rubricId,
+          rubricText: 'Fever rubric',
           matchedSymptoms: ['SYM_FEVER_001'],
         },
       ];
@@ -203,6 +207,7 @@ describe('Scoring Engine Service', () => {
       const selectedRubrics = [
         {
           rubricId: remedyPool.get(testRemedy._id.toString())!.rubricGrades[0].rubricId,
+          rubricText: 'Fever + anxiety rubric',
           matchedSymptoms: ['SYM_FEVER_001', 'SYM_ANXIETY_001'], // Multiple matches
         },
       ];
