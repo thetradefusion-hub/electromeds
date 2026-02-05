@@ -50,6 +50,7 @@ export class ScoringEngine {
     normalizedCase: NormalizedCaseProfile,
     selectedRubrics: Array<{
       rubricId: mongoose.Types.ObjectId;
+      rubricText: string;
       matchedSymptoms: string[];
     }>
   ): Promise<RemedyFinalScore[]> {
@@ -127,7 +128,15 @@ export class ScoringEngine {
         keynoteBonus,
         coverageBonus,
         contradictionPenalty: 0, // Will be set in Step 7
-        matchedRubrics: remedyScore.rubricGrades.map((rg) => rg.rubricId.toString()),
+        // Map rubric IDs back to human-readable rubric texts using selectedRubrics
+        matchedRubrics: remedyScore.rubricGrades
+          .map((rg) => {
+            const rubric = selectedRubrics.find(
+              (sr) => sr.rubricId.toString() === rg.rubricId.toString()
+            );
+            return rubric?.rubricText || rg.rubricId.toString();
+          })
+          .filter(Boolean),
         matchedSymptoms: this.getMatchedSymptoms(selectedRubrics),
         confidence: this.calculateConfidence(finalScore, remedyScore.rubricGrades.length),
       });

@@ -183,20 +183,20 @@ export default function Patients() {
             <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/5 rounded-full blur-2xl" />
           </div>
 
-          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-background border border-emerald-500/20 p-4 shadow-sm hover:shadow-md transition-all duration-300 group">
+          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-background border border-blue-500/20 p-4 shadow-sm hover:shadow-md transition-all duration-300 group">
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-2">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-md group-hover:scale-110 transition-transform">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 shadow-md group-hover:scale-110 transition-transform">
                   <UserPlus className="h-5 w-5 text-white" />
                 </div>
               </div>
               <p className="text-2xl font-bold text-foreground mb-0.5">{stats.newCases}</p>
               <p className="text-xs text-muted-foreground">New Cases</p>
             </div>
-            <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/5 rounded-full blur-2xl" />
+            <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/5 rounded-full blur-2xl" />
           </div>
 
-          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-purple-500/10 via-purple-500/5 to-background border border-purple-500/20 p-4 shadow-sm hover:shadow-md transition-all duration-300 group">
+          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-blue-500/10 via-blue-500/5 to-background border border-blue-500/20 p-4 shadow-sm hover:shadow-md transition-all duration-300 group">
             <div className="relative z-10">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 shadow-md group-hover:scale-110 transition-transform">
@@ -206,7 +206,7 @@ export default function Patients() {
               <p className="text-2xl font-bold text-foreground mb-0.5">{stats.followUps}</p>
               <p className="text-xs text-muted-foreground">Follow-ups</p>
             </div>
-            <div className="absolute top-0 right-0 w-20 h-20 bg-purple-500/5 rounded-full blur-2xl" />
+            <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/5 rounded-full blur-2xl" />
           </div>
 
           <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-cyan-500/10 via-cyan-500/5 to-background border border-cyan-500/20 p-4 shadow-sm hover:shadow-md transition-all duration-300 group">
@@ -358,7 +358,7 @@ export default function Patients() {
                     className={cn(
                       'inline-flex items-center rounded-full px-2.5 py-1 text-[10px] sm:text-xs font-medium shadow-sm',
                       patient.case_type === 'new'
-                        ? 'bg-gradient-to-r from-emerald-500/10 to-emerald-500/5 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                        ? 'bg-gradient-to-r from-blue-500/10 to-blue-500/5 text-blue-600 dark:text-blue-400 border border-blue-500/20'
                         : 'bg-gradient-to-r from-primary/10 to-primary/5 text-primary border border-primary/20'
                     )}
                   >

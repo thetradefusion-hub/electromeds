@@ -378,7 +378,7 @@ const Auth = () => {
                       {confirmPassword && (
                         <div className="absolute right-3 top-1/2 -translate-y-1/2">
                           {signupPassword === confirmPassword ? (
-                            <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                            <CheckCircle2 className="h-4 w-4 text-blue-500" />
                           ) : (
                             <XCircle className="h-4 w-4 text-destructive" />
                           )}
@@ -418,7 +418,7 @@ const Auth = () => {
                     <p className="text-xs text-destructive">{errors.signup_phone}</p>
                   )}
                   {signupPhone && validatePhone(signupPhone) && (
-                    <p className="text-xs text-emerald-500 flex items-center gap-1">
+                    <p className="text-xs text-blue-500 flex items-center gap-1">
                       <CheckCircle2 className="h-3 w-3" />
                       Valid phone number
                     </p>

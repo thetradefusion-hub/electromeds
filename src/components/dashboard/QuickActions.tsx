@@ -9,7 +9,7 @@ const actions = [
     description: 'Register new patient',
     path: '/patients/new',
     variant: 'primary' as const,
-    gradient: 'from-blue-500 to-cyan-500',
+    gradient: 'from-blue-600 to-blue-700',
   },
   {
     icon: Stethoscope,
@@ -17,7 +17,7 @@ const actions = [
     description: 'Start consultation',
     path: '/consultation',
     variant: 'accent' as const,
-    gradient: 'from-emerald-500 to-teal-500',
+    gradient: 'from-blue-500 to-blue-600',
   },
   {
     icon: FileText,
@@ -33,7 +33,7 @@ const actions = [
     description: 'Browse medicines',
     path: '/medicines',
     variant: 'default' as const,
-    gradient: 'from-purple-500 to-pink-500',
+    gradient: 'from-blue-600 to-blue-700',
   },
 ];
 
@@ -42,7 +42,7 @@ export function QuickActions() {
     <div className="medical-card border-border/50 shadow-sm hover:shadow-md transition-shadow">
       <div className="mb-4 sm:mb-5 pb-3 border-b border-border/50">
         <h3 className="text-lg sm:text-xl font-semibold text-foreground flex items-center gap-2">
-          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+          <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center">
             <Zap className="h-4 w-4 text-white" />
           </div>
           Quick Actions
@@ -58,9 +58,9 @@ export function QuickActions() {
             className={cn(
               "group relative overflow-hidden flex flex-col items-center justify-center gap-2 rounded-xl border p-4 text-center transition-all duration-300 hover:shadow-lg animate-fade-in",
               action.variant === 'primary' 
-                ? 'border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50/50 to-cyan-50/30 dark:from-blue-950/20 dark:to-cyan-950/10'
+                ? 'border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50/50 to-blue-100/30 dark:from-blue-950/30 dark:to-blue-900/20'
                 : action.variant === 'accent'
-                ? 'border-emerald-200 dark:border-emerald-800 bg-gradient-to-br from-emerald-50/50 to-teal-50/30 dark:from-emerald-950/20 dark:to-teal-950/10'
+                ? 'border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50/50 to-blue-100/30 dark:from-blue-950/30 dark:to-blue-900/20'
                 : 'border-border bg-card hover:border-primary/30'
             )}
             style={{ animationDelay: `${index * 50}ms` }}

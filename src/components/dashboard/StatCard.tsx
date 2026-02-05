@@ -38,15 +38,15 @@ export function StatCard({
 
   const gradientStyles = {
     default: 'from-slate-500 to-slate-600',
-    primary: 'from-blue-500 to-cyan-500',
-    accent: 'from-emerald-500 to-teal-500',
+    primary: 'from-blue-600 to-blue-700',
+    accent: 'from-blue-500 to-blue-600',
     warning: 'from-orange-500 to-amber-500',
   };
 
   const cardGradients = {
     default: 'from-slate-50 to-slate-100/50 dark:from-slate-900/50 dark:to-slate-800/30',
-    primary: 'from-blue-50 to-cyan-50/50 dark:from-blue-950/30 dark:to-cyan-950/20',
-    accent: 'from-emerald-50 to-teal-50/50 dark:from-emerald-950/30 dark:to-teal-950/20',
+    primary: 'from-blue-50 to-blue-50/50 dark:from-blue-950/40 dark:to-blue-900/30',
+    accent: 'from-blue-50/80 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20',
     warning: 'from-orange-50 to-amber-50/50 dark:from-orange-950/30 dark:to-amber-950/20',
   };
 
@@ -56,7 +56,7 @@ export function StatCard({
         'relative overflow-hidden rounded-xl border transition-all duration-300 hover:shadow-lg',
         `bg-gradient-to-br ${cardGradients[variant]}`,
         variant === 'primary' ? 'border-blue-200 dark:border-blue-800' :
-        variant === 'accent' ? 'border-emerald-200 dark:border-emerald-800' :
+        variant === 'accent' ? 'border-blue-200 dark:border-blue-800' :
         variant === 'warning' ? 'border-orange-200 dark:border-orange-800' :
         'border-border'
       )}
@@ -64,8 +64,8 @@ export function StatCard({
       {/* Decorative blur effect */}
       <div className={cn(
         'absolute top-0 right-0 w-24 h-24 rounded-full blur-2xl opacity-20 -translate-y-1/2 translate-x-1/2',
-        variant === 'primary' ? 'bg-blue-500' :
-        variant === 'accent' ? 'bg-emerald-500' :
+        variant === 'primary' ? 'bg-blue-600' :
+        variant === 'accent' ? 'bg-blue-500' :
         variant === 'warning' ? 'bg-orange-500' :
         'bg-slate-500'
       )} />
@@ -76,8 +76,8 @@ export function StatCard({
             <p className="text-xs sm:text-sm font-medium text-muted-foreground">{title}</p>
             <p className={cn(
               'text-2xl sm:text-3xl font-bold bg-gradient-to-r bg-clip-text text-transparent',
-              variant === 'primary' ? 'from-blue-600 to-cyan-600 dark:from-blue-400 dark:to-cyan-400' :
-              variant === 'accent' ? 'from-emerald-600 to-teal-600 dark:from-emerald-400 dark:to-teal-400' :
+              variant === 'primary' ? 'from-blue-700 to-blue-800 dark:from-blue-400 dark:to-blue-300' :
+              variant === 'accent' ? 'from-blue-600 to-blue-700 dark:from-blue-400 dark:to-blue-300' :
               variant === 'warning' ? 'from-orange-600 to-amber-600 dark:from-orange-400 dark:to-amber-400' :
               'from-foreground to-foreground/70'
             )}>
@@ -90,7 +90,7 @@ export function StatCard({
               <p
                 className={cn(
                   'text-xs font-medium flex items-center gap-1',
-                  trend.isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
+                  trend.isPositive ? 'text-primary' : 'text-red-600 dark:text-red-400'
                 )}
               >
                 <span>{trend.isPositive ? '↑' : '↓'}</span>

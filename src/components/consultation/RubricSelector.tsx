@@ -237,7 +237,7 @@ export function RubricSelector({
                     isSelected
                       ? 'border-primary bg-primary/5'
                       : 'border-border hover:bg-accent/50',
-                    rubric.isRare && 'border-purple-300 bg-purple-50/30'
+                    rubric.isRare && 'border-blue-300 bg-blue-50/30'
                   )}
                   onClick={() => handleToggleRubric(rubric.rubricId.toString())}
                 >
@@ -259,7 +259,7 @@ export function RubricSelector({
                               {rubric.repertoryType}
                             </Badge>
                             {rubric.isRare && (
-                              <Badge variant="outline" className="text-xs bg-purple-100 text-purple-800 border-purple-300">
+                              <Badge variant="outline" className="text-xs bg-blue-100 text-blue-800 border-blue-300">
                                 <Sparkles className="h-3 w-3 mr-1" />
                                 Rare
                               </Badge>

@@ -71,7 +71,7 @@ const confidenceLabels = {
 };
 
 const categoryColors = {
-  mental: 'bg-purple-100 text-purple-800 border-purple-300',
+  mental: 'bg-blue-100 text-blue-800 border-blue-300',
   general: 'bg-blue-100 text-blue-800 border-blue-300',
   particular: 'bg-orange-100 text-orange-800 border-orange-300',
   modality: 'bg-green-100 text-green-800 border-green-300',
@@ -242,7 +242,7 @@ export function ExtractedSymptomCard({
                 </Badge>
               )}
               {isSRP && (
-                <Badge variant="outline" className="text-xs bg-purple-100 text-purple-800 border-purple-300">
+                <Badge variant="outline" className="text-xs bg-blue-100 text-blue-800 border-blue-300">
                   <Sparkles className="h-3 w-3 mr-1" />
                   SRP
                 </Badge>

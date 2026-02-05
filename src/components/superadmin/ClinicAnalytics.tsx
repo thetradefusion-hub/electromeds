@@ -182,8 +182,8 @@ const ClinicAnalytics = () => {
       value: stats?.totalCaseRecords || 0,
       icon: FileText,
       description: 'Classical Homeopathy',
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-500/10',
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-500/10',
     },
     {
       title: 'Remedies',
@@ -206,8 +206,8 @@ const ClinicAnalytics = () => {
       value: stats?.classicalPrescriptions || 0,
       icon: FileText,
       description: 'Classical Homeopathy',
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-500/10',
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-500/10',
     },
   ];
 
@@ -226,11 +226,11 @@ const ClinicAnalytics = () => {
         {analyticsCards.map((card, index) => {
           const gradients = [
             'from-blue-500/10 to-cyan-500/10 border-blue-500/20',
-            'from-purple-500/10 to-pink-500/10 border-purple-500/20',
-            'from-green-500/10 to-emerald-500/10 border-green-500/20',
+            'from-blue-500/10 to-blue-600/10 border-blue-500/20',
+            'from-green-500/10 to-blue-500/10 border-green-500/20',
             'from-orange-500/10 to-amber-500/10 border-orange-500/20',
             'from-red-500/10 to-rose-500/10 border-red-500/20',
-            'from-teal-500/10 to-cyan-500/10 border-teal-500/20',
+            'from-blue-500/10 to-cyan-500/10 border-blue-500/20',
           ];
           const gradient = gradients[index % gradients.length];
           
@@ -309,7 +309,7 @@ const ClinicAnalytics = () => {
         </Card>
 
         {/* Prescription Trend */}
-        <Card className="border-2 border-green-500/20 bg-gradient-to-br from-green-500/5 to-emerald-500/5 shadow-lg">
+        <Card className="border-2 border-green-500/20 bg-gradient-to-br from-green-500/5 to-blue-500/5 shadow-lg">
           <CardHeader className="bg-gradient-to-r from-green-500/10 to-transparent border-b border-green-500/20">
             <CardTitle className="flex items-center gap-2 text-lg">
               <div className="p-2 rounded-lg bg-green-500/20">
@@ -354,10 +354,10 @@ const ClinicAnalytics = () => {
       <div className="grid gap-6 md:grid-cols-3">
         {/* Weekly Comparison */}
         <Card className="border-2 border-purple-500/20 bg-gradient-to-br from-purple-500/5 to-pink-500/5 shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-purple-500/10 to-transparent border-b border-purple-500/20">
+          <CardHeader className="bg-gradient-to-r from-blue-500/10 to-transparent border-b border-blue-500/20">
             <CardTitle className="flex items-center gap-2 text-lg">
               <div className="p-2 rounded-lg bg-purple-500/20">
-                <Activity className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                <Activity className="h-5 w-5 text-blue-600 dark:text-blue-400" />
               </div>
               Weekly Growth
             </CardTitle>
@@ -425,8 +425,8 @@ const ClinicAnalytics = () => {
         </Card>
 
         {/* Gender Distribution */}
-        <Card className="border-2 border-teal-500/20 bg-gradient-to-br from-teal-500/5 to-cyan-500/5 shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-teal-500/10 to-transparent border-b border-teal-500/20">
+        <Card className="border-2 border-blue-500/20 bg-gradient-to-br from-blue-500/5 to-cyan-500/5 shadow-lg">
+          <CardHeader className="bg-gradient-to-r from-blue-500/10 to-transparent border-b border-blue-500/20">
             <CardTitle className="text-lg">Gender Distribution</CardTitle>
             <CardDescription className="mt-1">Patient demographics</CardDescription>
           </CardHeader>

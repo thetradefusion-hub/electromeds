@@ -41,7 +41,7 @@ export function RemedySuggestionsCard({
   const getConfidenceColor = (confidence: string) => {
     switch (confidence) {
       case 'very_high':
-        return 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20';
+        return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20';
       case 'high':
         return 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20';
       case 'medium':
@@ -204,9 +204,20 @@ export function RemedySuggestionsCard({
                           Matched Repertory Rubrics ({suggestion.matchedRubrics.length})
                         </span>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        This remedy appears in {suggestion.matchedRubrics.length} repertory rubrics that match the patient's symptoms, indicating strong clinical indication.
+                      <p className="text-xs text-muted-foreground mb-1.5">
+                        This remedy appears in authentic repertory rubrics that map to the patient&apos;s symptoms.
+                        Use this list to cross‑verify with your repertory.
                       </p>
+                      <ul className="space-y-1 text-[11px] text-muted-foreground">
+                        {suggestion.matchedRubrics.slice(0, 4).map((rubric, idx) => (
+                          <li key={idx}>• {rubric}</li>
+                        ))}
+                      </ul>
+                      {suggestion.matchedRubrics.length > 4 && (
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          +{suggestion.matchedRubrics.length - 4} more rubrics available in detailed analysis.
+                        </p>
+                      )}
                     </div>
                   )}
 
@@ -290,6 +301,18 @@ export function RemedySuggestionsCard({
                         <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
                           {suggestion.clinicalReasoning}
                         </p>
+                        {suggestion.matchedRubrics && suggestion.matchedRubrics.length > 4 && (
+                          <div className="mt-3 pt-3 border-t border-border/30">
+                            <p className="text-xs font-medium text-foreground mb-2">
+                              All Matched Rubrics ({suggestion.matchedRubrics.length}):
+                            </p>
+                            <ul className="space-y-1 text-[11px] text-muted-foreground">
+                              {suggestion.matchedRubrics.map((rubric, idx) => (
+                                <li key={idx}>• {rubric}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
                         {suggestion.matchedSymptoms && suggestion.matchedSymptoms.length > 8 && (
                           <div className="mt-3 pt-3 border-t border-border/30">
                             <p className="text-xs font-medium text-foreground mb-2">

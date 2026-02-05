@@ -441,7 +441,7 @@ export function ClassicalSymptomSelector({
                       className={cn(
                         'rounded-full px-2 py-0.5 text-xs font-medium',
                         selected.type === 'better'
-                          ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                          ? 'bg-blue-500/10 text-blue-600 dark:text-blue-400'
                           : 'bg-red-500/10 text-red-600 dark:text-red-400'
                       )}
                     >

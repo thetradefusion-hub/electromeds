@@ -67,7 +67,7 @@ export function RecentPatients() {
                 <div className={cn(
                   'flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-xl transition-transform duration-300 group-hover:scale-110 shadow-sm',
                   patient.case_type === 'new'
-                    ? 'bg-gradient-to-br from-emerald-500 to-teal-500'
+                    ? 'bg-gradient-to-br from-blue-500 to-blue-600'
                     : 'bg-gradient-to-br from-blue-500 to-cyan-500'
                 )}>
                   <User className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
@@ -94,7 +94,7 @@ export function RecentPatients() {
                   className={cn(
                     'px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap',
                     patient.case_type === 'new'
-                      ? 'bg-gradient-to-br from-emerald-500/10 to-teal-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                      ? 'bg-gradient-to-br from-blue-500/10 to-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
                       : 'bg-gradient-to-br from-blue-500/10 to-cyan-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
                   )}
                 >

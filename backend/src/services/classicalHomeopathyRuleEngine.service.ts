@@ -108,6 +108,7 @@ export class ClassicalHomeopathyRuleEngine {
       normalizedCase,
       selectedRubrics.map((r) => ({
         rubricId: r.rubricId,
+        rubricText: r.rubricText,
         matchedSymptoms: r.matchedSymptoms,
       }))
     );

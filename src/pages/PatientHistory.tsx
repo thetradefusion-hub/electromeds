@@ -590,11 +590,11 @@ export default function PatientHistory() {
 
                         {/* Homeopathic Summary */}
                         <div>
-                          <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold text-purple-600">
+                          <h4 className="mb-2 flex items-center gap-2 text-sm font-semibold text-blue-600">
                             <Sparkles className="h-4 w-4" />
                             Homeopathic Summary
                           </h4>
-                          <div className="rounded-lg border border-purple-200 bg-purple-50 dark:bg-purple-950/20 p-3">
+                          <div className="rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-950/20 p-3">
                             <p className="text-sm whitespace-pre-wrap leading-relaxed">
                               {caseRecord.caseSummary.homeopathicSummary}
                             </p>

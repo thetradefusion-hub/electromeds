@@ -23,9 +23,9 @@ export default function Dashboard() {
     <MainLayout title="Dashboard" subtitle={`Welcome back, ${doctorName}`}>
       <div className="space-y-4 sm:space-y-6">
         {/* Enhanced Welcome Header */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/10 via-primary/5 to-background border border-primary/20 p-4 sm:p-6 shadow-sm">
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50/90 via-blue-50/50 to-background dark:from-blue-950/50 dark:via-blue-900/30 dark:to-background border border-blue-200/60 dark:border-blue-800/50 p-4 sm:p-6 shadow-sm">
           <div className="relative z-10 flex items-center gap-3 sm:gap-4">
-            <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/80 shadow-lg">
+            <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 shadow-lg">
               <Stethoscope className="h-6 w-6 sm:h-7 sm:w-7 text-primary-foreground" />
             </div>
             <div className="flex-1">
@@ -56,7 +56,7 @@ export default function Dashboard() {
           <div className="animate-in fade-in-50 duration-300" style={{ animationDelay: '0ms' }}>
             <StatCard
               title="Total Patients"
-              value={isLoading ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : stats?.totalPatients ?? 0}
+              value={isLoading ? <Loader2 className="h-5 w-5 animate-spin text-blue-600 dark:text-blue-400" /> : stats?.totalPatients ?? 0}
               subtitle="All time"
               icon={Users}
               variant="primary"
@@ -65,7 +65,7 @@ export default function Dashboard() {
           <div className="animate-in fade-in-50 duration-300" style={{ animationDelay: '100ms' }}>
             <StatCard
               title="Today's Patients"
-              value={isLoading ? <Loader2 className="h-5 w-5 animate-spin text-emerald-500" /> : stats?.todayPatients ?? 0}
+              value={isLoading ? <Loader2 className="h-5 w-5 animate-spin text-blue-600 dark:text-blue-400" /> : stats?.todayPatients ?? 0}
               subtitle="Consultations"
               icon={UserPlus}
               variant="accent"

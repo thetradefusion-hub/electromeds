@@ -126,10 +126,10 @@ export function StaffManagement() {
                 </div>
               </div>
             </div>
-            <div className="p-3 sm:p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20">
+            <div className="p-3 sm:p-4 rounded-xl bg-blue-500/5 border border-blue-500/20">
               <div className="flex items-center gap-2 sm:gap-3">
-                <div className="p-2 rounded-lg bg-emerald-500/10 flex-shrink-0">
-                  <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-500" />
+                <div className="p-2 rounded-lg bg-blue-500/10 flex-shrink-0">
+                  <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500" />
                 </div>
                 <div>
                   <p className="text-xl sm:text-2xl font-bold">{activeStaff}</p>

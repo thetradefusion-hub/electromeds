@@ -370,8 +370,8 @@ export default function Settings() {
                 </div>
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-purple-500/10">
-                      <Mail className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10">
+                      <Mail className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     </div>
                     Email Address
                   </label>
@@ -388,8 +388,8 @@ export default function Settings() {
                 </div>
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10">
-                      <Phone className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10">
+                      <Phone className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     </div>
                     Phone Number
                   </label>
@@ -448,8 +448,8 @@ export default function Settings() {
                 </div>
                 <div className="space-y-2 sm:col-span-2">
                   <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10">
-                      <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10">
+                      <Sparkles className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     </div>
                     Practice Modality
                   </label>
@@ -521,7 +521,7 @@ export default function Settings() {
           {activeTab === 'clinic' && (
             <div className="medical-card border-border/50 shadow-sm hover:shadow-md transition-shadow animate-fade-in">
               <div className="mb-6 flex items-center gap-4 pb-4 border-b border-border/50">
-                <div className="flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 shadow-lg">
+                <div className="flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-500 shadow-lg">
                   <Building className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
                 </div>
                 <div>
@@ -535,8 +535,8 @@ export default function Settings() {
               <div className="space-y-5">
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10">
-                      <Building className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10">
+                      <Building className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     </div>
                     Clinic Name
                   </label>
@@ -624,10 +624,10 @@ export default function Settings() {
                         </div>
                       </div>
                       
-                      <div className="relative overflow-hidden rounded-xl border border-emerald-200 dark:border-emerald-800 bg-gradient-to-br from-emerald-50/50 to-emerald-100/30 dark:from-emerald-950/20 dark:to-emerald-900/10 p-4 hover:shadow-md transition-shadow">
-                        <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/5 rounded-full blur-xl -translate-y-1/2 translate-x-1/2" />
+                      <div className="relative overflow-hidden rounded-xl border border-blue-200 dark:border-blue-800 bg-gradient-to-br from-blue-50/50 to-blue-100/30 dark:from-blue-950/20 dark:to-blue-900/10 p-4 hover:shadow-md transition-shadow">
+                        <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/5 rounded-full blur-xl -translate-y-1/2 translate-x-1/2" />
                         <div className="relative z-10">
-                          <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-700 dark:from-emerald-400 dark:to-emerald-500 bg-clip-text text-transparent">
+                          <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-400 dark:to-blue-500 bg-clip-text text-transparent">
                             {usage?.prescriptionsCount || 0}
                           </p>
                           <p className="text-xs sm:text-sm text-muted-foreground mt-1">Prescriptions</p>
@@ -637,7 +637,7 @@ export default function Settings() {
                       <div className="relative overflow-hidden rounded-xl border border-purple-200 dark:border-purple-800 bg-gradient-to-br from-purple-50/50 to-purple-100/30 dark:from-purple-950/20 dark:to-purple-900/10 p-4 hover:shadow-md transition-shadow">
                         <div className="absolute top-0 right-0 w-20 h-20 bg-purple-500/5 rounded-full blur-xl -translate-y-1/2 translate-x-1/2" />
                         <div className="relative z-10">
-                          <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-purple-600 to-purple-700 dark:from-purple-400 dark:to-purple-500 bg-clip-text text-transparent">
+                          <p className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-600 dark:from-blue-400 dark:to-blue-500 bg-clip-text text-transparent">
                             {usage?.aiAnalysisCount || 0}
                           </p>
                           <p className="text-xs sm:text-sm text-muted-foreground mt-1">
@@ -728,14 +728,14 @@ export default function Settings() {
                             
                             <ul className="mt-5 space-y-2.5">
                               <li className="flex items-center gap-2 text-sm">
-                                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/10">
-                                  <Check className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500/10">
+                                  <Check className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
                                 </div>
                                 <span className="text-foreground">{plan.patient_limit ? `${plan.patient_limit} Patients` : 'Unlimited Patients'}</span>
                               </li>
                               <li className="flex items-center gap-2 text-sm">
-                                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-purple-500/10">
-                                  <Check className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400" />
+                                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-500/10">
+                                  <Check className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
                                 </div>
                                 <span className="text-foreground">{plan.ai_analysis_quota} AI Analysis/month</span>
                               </li>
@@ -839,8 +839,8 @@ export default function Settings() {
                 </div>
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10">
-                      <Shield className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10">
+                      <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                     </div>
                     Confirm New Password
                   </label>
@@ -926,7 +926,7 @@ export default function Settings() {
           {activeTab === 'appearance' && (
             <div className="medical-card border-border/50 shadow-sm hover:shadow-md transition-shadow animate-fade-in">
               <div className="mb-6 flex items-center gap-4 pb-4 border-b border-border/50">
-                <div className="flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg">
+                <div className="flex h-16 w-16 sm:h-20 sm:w-20 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg">
                   <Palette className="h-8 w-8 sm:h-10 sm:w-10 text-white" />
                 </div>
                 <div>
@@ -938,10 +938,10 @@ export default function Settings() {
               </div>
 
               <div className="space-y-4">
-                <div className="relative overflow-hidden rounded-xl border border-border/50 bg-gradient-to-br from-purple-50/50 to-pink-50/30 dark:from-purple-950/20 dark:to-pink-950/10 p-6">
+                <div className="relative overflow-hidden rounded-xl border border-border/50 bg-gradient-to-br from-blue-50/50 to-blue-50/30 dark:from-blue-950/20 dark:to-blue-950/10 p-6">
                   <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
                   <div className="relative z-10 text-center">
-                    <Palette className="h-12 w-12 mx-auto mb-3 text-purple-500 dark:text-purple-400" />
+                    <Palette className="h-12 w-12 mx-auto mb-3 text-blue-500 dark:text-blue-400" />
                     <h3 className="text-lg font-semibold text-foreground mb-2">Theme Customization</h3>
                     <p className="text-sm text-muted-foreground">
                       Theme customization options will be available soon. Stay tuned for updates!
@@ -1005,7 +1005,7 @@ export default function Settings() {
                   </div>
                 </div>
                 {selectedPlan.price_yearly && billingCycle === 'yearly' && (
-                  <p className="text-xs text-emerald-600 dark:text-emerald-400">
+                  <p className="text-xs text-blue-600 dark:text-blue-400">
                     Save ₹{(selectedPlan.price_monthly * 12) - selectedPlan.price_yearly} per year
                   </p>
                 )}
@@ -1051,7 +1051,7 @@ export default function Settings() {
                             <div className="text-sm text-muted-foreground">
                               ₹{selectedPlan.price_yearly}/year
                             </div>
-                            <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
+                            <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
                               Save {Math.round(((selectedPlan.price_monthly * 12 - selectedPlan.price_yearly) / (selectedPlan.price_monthly * 12)) * 100)}%
                             </div>
                           </div>
@@ -1069,7 +1069,7 @@ export default function Settings() {
                 <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto">
                   {selectedPlan.features?.map((feature: string, idx: number) => (
                     <div key={idx} className="flex items-center gap-2 text-sm">
-                      <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                      <Check className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
                       <span className="text-foreground">{feature}</span>
                     </div>
                   ))}

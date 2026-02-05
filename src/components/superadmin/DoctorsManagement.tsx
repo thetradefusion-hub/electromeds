@@ -228,12 +228,12 @@ const DoctorsManagement = () => {
         <Card className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+              <CheckCircle2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               Active
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{stats.active}</div>
+            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.active}</div>
             <p className="text-xs text-muted-foreground mt-1">Currently active</p>
           </CardContent>
         </Card>
@@ -361,8 +361,8 @@ const DoctorsManagement = () => {
                           </div>
                           {doctor.phone && (
                             <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/10">
-                                <Phone className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-500/10">
+                                <Phone className="h-3 w-3 text-blue-600 dark:text-blue-400" />
                               </div>
                               <span>{doctor.phone}</span>
                             </div>
@@ -375,7 +375,7 @@ const DoctorsManagement = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant="secondary" className="bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20">
+                        <Badge variant="secondary" className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">
                           {doctor.specialization}
                         </Badge>
                       </TableCell>
@@ -410,7 +410,7 @@ const DoctorsManagement = () => {
                             </Badge>
                           )}
                           {doctor.isActive && (
-                            <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 w-fit text-xs">
+                            <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20 w-fit text-xs">
                               Active
                             </Badge>
                           )}

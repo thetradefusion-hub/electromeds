@@ -666,7 +666,7 @@ export default function Consultation() {
                         className={cn(
                           'transition-all',
                           p.case_type === 'new'
-                            ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                            ? 'bg-blue-500/10 text-blue-600 border-blue-500/20'
                             : 'bg-blue-500/10 text-blue-600 border-blue-500/20'
                         )}
                       >
@@ -836,7 +836,7 @@ export default function Consultation() {
                   <div>
                     <h3 className="text-lg font-semibold text-foreground">Record Vitals</h3>
                     {(vitals.bloodPressure || vitals.temperature || vitals.weight || vitals.pulse) && (
-                      <Badge variant="secondary" className="mt-1 text-xs bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                      <Badge variant="secondary" className="mt-1 text-xs bg-blue-500/10 text-blue-600 border-blue-500/20">
                         <CheckCircle2 className="h-3 w-3 mr-1" />
                         Recorded
                       </Badge>
@@ -889,7 +889,7 @@ export default function Consultation() {
                   </div>
                   <div className="rounded-lg border border-border/50 bg-card p-3 hover:border-primary/30 transition-all">
                     <label className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-foreground uppercase tracking-wide">
-                      <Activity className="h-4 w-4 text-purple-500" />
+                      <Activity className="h-4 w-4 text-blue-500" />
                       Pulse (bpm)
                     </label>
                     <input

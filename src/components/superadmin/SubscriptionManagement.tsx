@@ -67,7 +67,7 @@ const SubscriptionManagement = () => {
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; className: string }> = {
-      active: { variant: 'default', className: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20' },
+      active: { variant: 'default', className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' },
       trial: { variant: 'secondary', className: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20' },
       cancelled: { variant: 'destructive', className: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20' },
       expired: { variant: 'outline', className: 'bg-gray-500/10 text-gray-600 dark:text-gray-400 border-gray-500/20' },
@@ -121,7 +121,7 @@ const SubscriptionManagement = () => {
             <CardTitle className="text-sm font-medium text-muted-foreground">Active</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{stats.active}</div>
+            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.active}</div>
           </CardContent>
         </Card>
 

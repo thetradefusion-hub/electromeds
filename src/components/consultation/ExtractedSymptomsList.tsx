@@ -38,7 +38,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 const categoryColors = {
-  mental: 'border-purple-300 bg-purple-50/30',
+  mental: 'border-blue-300 bg-blue-50/30',
   general: 'border-blue-300 bg-blue-50/30',
   particular: 'border-orange-300 bg-orange-50/30',
   modality: 'border-green-300 bg-green-50/30',

@@ -26,7 +26,7 @@ const SaasAdmin = () => {
       value: 'revenue', 
       icon: TrendingUp, 
       label: 'Revenue', 
-      color: 'from-emerald-500 to-teal-500',
+      color: 'from-blue-500 to-blue-600',
       badge: null
     },
     { 
@@ -40,7 +40,7 @@ const SaasAdmin = () => {
       value: 'support', 
       icon: MessageSquare, 
       label: 'Support', 
-      color: 'from-purple-500 to-pink-500',
+      color: 'from-blue-500 to-blue-600',
       badge: tickets.filter(t => t.status === 'open').length
     },
   ];
@@ -53,7 +53,7 @@ const SaasAdmin = () => {
       <div className="space-y-4">
         {/* Compact Header */}
         <div className="flex items-center gap-2.5 pb-3 border-b border-border/50">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-emerald-500 to-teal-500 shadow-sm">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 shadow-sm">
             <BarChart3 className="h-4 w-4 text-white" />
           </div>
           <div>

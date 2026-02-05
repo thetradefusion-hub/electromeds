@@ -154,15 +154,15 @@ export default function SupportTickets({ tickets, isLoading, onUpdateStatus }: S
             </div>
           </CardContent>
         </Card>
-        <Card className="relative overflow-hidden bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border-emerald-500/20 hover:shadow-lg transition-all duration-300">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+        <Card className="relative overflow-hidden bg-gradient-to-br from-blue-500/10 to-blue-500/5 border-blue-500/20 hover:shadow-lg transition-all duration-300">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
           <CardContent className="pt-4 relative z-10">
             <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-lg">
+              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
                 <CheckCircle className="h-5 w-5 text-white" />
               </div>
               <div>
-                <p className="text-2xl font-bold bg-gradient-to-r from-emerald-500 to-emerald-600 bg-clip-text text-transparent">
+                <p className="text-2xl font-bold bg-gradient-to-r from-blue-500 to-blue-600 bg-clip-text text-transparent">
                   {stats.resolved}
                 </p>
                 <p className="text-sm text-muted-foreground">Resolved</p>
@@ -190,9 +190,9 @@ export default function SupportTickets({ tickets, isLoading, onUpdateStatus }: S
 
       {/* Enhanced Filters */}
       <Card className="border-border/50 shadow-sm">
-        <CardHeader className="border-b border-border/50 bg-gradient-to-r from-purple-500/5 to-pink-500/5">
+        <CardHeader className="border-b border-border/50 bg-gradient-to-r from-blue-500/5 to-blue-500/5">
           <CardTitle className="flex items-center gap-2 text-lg font-semibold">
-            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+            <div className="h-8 w-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
               <MessageSquare className="h-4 w-4 text-white" />
             </div>
             Support Tickets

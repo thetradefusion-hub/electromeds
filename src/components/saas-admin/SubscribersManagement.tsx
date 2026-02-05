@@ -106,9 +106,9 @@ export default function SubscribersManagement({ subscriptions, isLoading }: Subs
 
         {/* Enhanced Stats Summary */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 border border-emerald-500/20 p-4 text-center hover:shadow-lg transition-all duration-300">
-            <div className="absolute top-0 right-0 w-20 h-20 bg-emerald-500/5 rounded-full blur-xl -translate-y-1/2 translate-x-1/2" />
-            <p className="text-2xl font-bold bg-gradient-to-r from-emerald-500 to-emerald-600 bg-clip-text text-transparent relative z-10">
+          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-blue-500/10 to-blue-500/5 border border-blue-500/20 p-4 text-center hover:shadow-lg transition-all duration-300">
+            <div className="absolute top-0 right-0 w-20 h-20 bg-blue-500/5 rounded-full blur-xl -translate-y-1/2 translate-x-1/2" />
+            <p className="text-2xl font-bold bg-gradient-to-r from-blue-500 to-blue-600 bg-clip-text text-transparent relative z-10">
               {subscriptions.filter(s => s.status === 'active').length}
             </p>
             <p className="text-sm text-muted-foreground mt-1 relative z-10">Active</p>
@@ -127,9 +127,9 @@ export default function SubscribersManagement({ subscriptions, isLoading }: Subs
             </p>
             <p className="text-sm text-muted-foreground mt-1 relative z-10">Cancelled</p>
           </div>
-          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-purple-500/10 to-purple-500/5 border border-purple-500/20 p-4 text-center hover:shadow-lg transition-all duration-300">
+          <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-blue-500/10 to-blue-500/5 border border-blue-500/20 p-4 text-center hover:shadow-lg transition-all duration-300">
             <div className="absolute top-0 right-0 w-20 h-20 bg-purple-500/5 rounded-full blur-xl -translate-y-1/2 translate-x-1/2" />
-            <p className="text-2xl font-bold bg-gradient-to-r from-purple-500 to-purple-600 bg-clip-text text-transparent relative z-10">
+            <p className="text-2xl font-bold bg-gradient-to-r from-blue-500 to-blue-600 bg-clip-text text-transparent relative z-10">
               {subscriptions.length}
             </p>
             <p className="text-sm text-muted-foreground mt-1 relative z-10">Total</p>

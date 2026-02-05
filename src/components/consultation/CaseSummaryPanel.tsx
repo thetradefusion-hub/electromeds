@@ -217,7 +217,7 @@ export function CaseSummaryPanel({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label className="text-base font-semibold flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-purple-600" />
+                  <Sparkles className="h-4 w-4 text-blue-600" />
                   Homeopathic Summary
                 </Label>
                 {!editing.homeopathic && (
@@ -263,7 +263,7 @@ export function CaseSummaryPanel({
                   </div>
                 </div>
               ) : (
-                <div className="p-4 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
                   <p className="text-sm whitespace-pre-wrap leading-relaxed">
                     {displaySummary.homeopathicSummary}
                   </p>
