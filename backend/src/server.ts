@@ -41,7 +41,9 @@ const allowedOrigins = [
   config.frontendUrl,
   'http://localhost:8080',
   'http://localhost:3000',
-  // Add your Vercel deployment URLs here
+  // Production frontend domains (Vercel / custom)
+  'https://homeolytics.vercel.app',
+  'https://www.homeolytics.vercel.app',
   process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '',
   process.env.FRONTEND_URL || '',
 ].filter(Boolean);
