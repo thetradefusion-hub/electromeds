@@ -16,6 +16,8 @@ export const ruleEngineConfig = {
     },
     // Minimum score threshold - remedies below this won't be suggested
     minimumScore: 30,
+    // Minimum rubrics a remedy must match to be suggested (improves accuracy)
+    minRubricsForSuggestion: 2,
     // Maximum number of suggestions to show
     maxSuggestions: 5,
     // Score gap analysis thresholds

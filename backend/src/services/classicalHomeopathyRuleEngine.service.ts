@@ -7,6 +7,7 @@
  */
 
 import mongoose from 'mongoose';
+import Rubric from '../models/Rubric.model.js';
 import CaseEngine, { type StructuredCase } from './caseEngine.service.js';
 import RubricMappingEngine from './rubricMapping.service.js';
 import RepertoryEngine from './repertoryEngine.service.js';
@@ -44,54 +45,54 @@ export class ClassicalHomeopathyRuleEngine {
 
   /**
    * Main entry point - Process complete case
-   * 
-   * @param doctorId - Doctor ID
-   * @param patientId - Patient ID
-   * @param structuredCase - Structured case input
-   * @param patientHistory - Previous remedy history (optional)
-   * @returns Suggestions and case record ID
+   *
+   * @param selectedRubricIds - Optional user-confirmed rubric IDs from AI input (book icon). When provided, these are used instead of rubric mapping.
    */
   async processCase(
     doctorId: mongoose.Types.ObjectId,
     patientId: mongoose.Types.ObjectId,
     structuredCase: StructuredCase,
-    patientHistory?: Array<{ remedyId: string; date: Date }>
+    patientHistory?: Array<{ remedyId: string; date: Date }>,
+    selectedRubricIds?: string[]
   ): Promise<ProcessCaseResult> {
     try {
       console.log('[ClassicalHomeopathyRuleEngine] Processing case...');
       console.log(`[ClassicalHomeopathyRuleEngine] Structured case: ${JSON.stringify(structuredCase).substring(0, 200)}...`);
-      
+
       // Step 1: Case Intake
       const normalizedCase = await this.caseEngine.normalizeCase(structuredCase);
       console.log(`[ClassicalHomeopathyRuleEngine] Normalized case: Mental=${normalizedCase.mental?.length || 0}, Generals=${normalizedCase.generals?.length || 0}, Particulars=${normalizedCase.particulars?.length || 0}, Modalities=${normalizedCase.modalities?.length || 0}`);
 
-    // Step 2: Symptom Normalization (if needed - already done in Step 1, but can re-normalize if needed)
+      let selectedRubrics: Array<{ rubricId: string; rubricText: string; repertoryType: string; matchedSymptoms: string[]; autoSelected?: boolean }>;
 
-    // Step 3: Rubric Mapping
-    const rubricMappings = await this.rubricMapping.mapSymptomsToRubrics(normalizedCase);
-    
-    // Use auto-selected rubrics, or if none, use top rubrics by confidence (>= 20%)
-    let selectedRubrics = rubricMappings.filter((r) => r.autoSelected);
-    
-    // If no auto-selected rubrics, use top rubrics with confidence >= 20%
-    if (selectedRubrics.length === 0) {
-      selectedRubrics = rubricMappings
-        .filter((r) => r.confidence >= 20)
-        .slice(0, 20); // Limit to top 20 rubrics
-      
-      console.log(`[ClassicalHomeopathyRuleEngine] No auto-selected rubrics found. Using ${selectedRubrics.length} rubrics with confidence >= 20%`);
-    }
-    
-    if (selectedRubrics.length === 0) {
-      console.error('[ClassicalHomeopathyRuleEngine] No rubrics found at all. Rubric mappings:', rubricMappings.length);
-      console.error('[ClassicalHomeopathyRuleEngine] Normalized case symptoms:', {
-        mental: normalizedCase.mental.map(s => s.symptomName),
-        generals: normalizedCase.generals.map(s => s.symptomName),
-        particulars: normalizedCase.particulars.map(s => s.symptomName),
-        modalities: normalizedCase.modalities.map(s => s.symptomName),
-      });
-      throw new Error('NO RUBRICS SELECTED! Could not find matching English rubrics in publicum repertory for given symptoms. Please ensure symptoms are in English and match repertory terminology.');
-    }
+      if (selectedRubricIds && selectedRubricIds.length > 0) {
+        // Use user-confirmed rubrics from AI input (book icon) instead of mapping
+        selectedRubrics = await this.resolveRubricsByIds(selectedRubricIds);
+        console.log(`[ClassicalHomeopathyRuleEngine] Using ${selectedRubrics.length} user-selected rubrics`);
+      } else {
+        // Step 3: Rubric Mapping from symptoms
+        const rubricMappings = await this.rubricMapping.mapSymptomsToRubrics(normalizedCase);
+        selectedRubrics = rubricMappings.filter((r) => r.autoSelected);
+
+        if (selectedRubrics.length === 0) {
+          selectedRubrics = rubricMappings
+            .filter((r) => r.confidence >= 20)
+            .slice(0, 20);
+
+          console.log(`[ClassicalHomeopathyRuleEngine] No auto-selected rubrics found. Using ${selectedRubrics.length} rubrics with confidence >= 20%`);
+        }
+
+        if (selectedRubrics.length === 0) {
+          console.error('[ClassicalHomeopathyRuleEngine] No rubrics found at all. Rubric mappings:', rubricMappings.length);
+          console.error('[ClassicalHomeopathyRuleEngine] Normalized case symptoms:', {
+            mental: normalizedCase.mental.map(s => s.symptomName),
+            generals: normalizedCase.generals.map(s => s.symptomName),
+            particulars: normalizedCase.particulars.map(s => s.symptomName),
+            modalities: normalizedCase.modalities.map(s => s.symptomName),
+          });
+          throw new Error('NO RUBRICS SELECTED! Could not find matching English rubrics in publicum repertory for given symptoms. Please ensure symptoms are in English and match repertory terminology.');
+        }
+      }
 
     // Step 4: Repertory Engine
     const remedyPool = await this.repertoryEngine.buildRemedyPool(
@@ -138,7 +139,7 @@ export class ClassicalHomeopathyRuleEngine {
         rubricId: r.rubricId,
         rubricText: r.rubricText,
         repertoryType: r.repertoryType,
-        autoSelected: r.autoSelected,
+        autoSelected: r.autoSelected ?? true,
       })),
       engineOutput: {
         remedyScores: safetyChecked.map((sc) => sc.remedy),
@@ -156,6 +157,27 @@ export class ClassicalHomeopathyRuleEngine {
       console.error('[ClassicalHomeopathyRuleEngine] Error stack:', error.stack);
       throw error; // Re-throw to be caught by controller
     }
+  }
+
+  /**
+   * Resolve user-selected rubric IDs (from AI input book icon) to full rubric records for the engine.
+   */
+  private async resolveRubricsByIds(
+    ids: string[]
+  ): Promise<Array<{ rubricId: mongoose.Types.ObjectId; rubricText: string; repertoryType: string; matchedSymptoms: string[]; autoSelected?: boolean }>> {
+    const objectIds = ids
+      .filter((id) => id && mongoose.Types.ObjectId.isValid(id))
+      .map((id) => new mongoose.Types.ObjectId(id));
+    if (objectIds.length === 0) return [];
+
+    const rubrics = await Rubric.find({ _id: { $in: objectIds } }).lean();
+    return rubrics.map((r: any) => ({
+      rubricId: r._id,
+      rubricText: r.rubricText,
+      repertoryType: r.repertoryType,
+      matchedSymptoms: r.linkedSymptoms || [],
+      autoSelected: true,
+    }));
   }
 }
 

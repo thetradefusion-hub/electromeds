@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { MainLayout } from '@/components/layout/MainLayout';
 import { usePrescriptions, Prescription } from '@/hooks/usePrescriptions';
 import { generatePrescriptionPDF } from '@/utils/generatePrescriptionPDF';
@@ -10,10 +11,30 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
 export default function Prescriptions() {
-  const { prescriptions, loading, doctorInfo } = usePrescriptions();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { prescriptions, loading, doctorInfo, getPrescription, refetch } = usePrescriptions();
   const { sending, shareViaWhatsAppDirect } = useWhatsAppShare();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPrescription, setSelectedPrescription] = useState<Prescription | null>(null);
+
+  // When arriving from "Create prescription" with newPrescriptionId, load that prescription and show preview
+  useEffect(() => {
+    const newId = (location.state as { newPrescriptionId?: string })?.newPrescriptionId;
+    if (!newId) return;
+
+    let cancelled = false;
+    getPrescription(newId).then((rx) => {
+      if (cancelled) return;
+      if (rx) {
+        setSelectedPrescription(rx);
+        toast.success('Prescription created. Preview below – share or print as needed.');
+      }
+      refetch();
+      navigate(location.pathname, { replace: true, state: {} });
+    });
+    return () => { cancelled = true; };
+  }, [(location.state as { newPrescriptionId?: string })?.newPrescriptionId]);
 
   const handleWhatsAppShare = (rx: Prescription) => {
     if (!rx.patient || !doctorInfo) return;

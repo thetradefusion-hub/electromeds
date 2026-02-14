@@ -37,6 +37,7 @@ export function RemedySuggestionsCard({
   const [expandedId, setExpandedId] = useState<string | null>(
     suggestions[0]?.remedy.id || null
   );
+  const [scoreBreakdownOpenId, setScoreBreakdownOpenId] = useState<string | null>(null);
 
   const getConfidenceColor = (confidence: string) => {
     switch (confidence) {
@@ -91,7 +92,7 @@ export function RemedySuggestionsCard({
         </Badge>
       </div>
 
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {suggestions.map((suggestion, index) => {
           const isExpanded = expandedId === suggestion.remedy.id;
           const isSelected = selectedRemedyId === suggestion.remedy.id;
@@ -145,13 +146,66 @@ export function RemedySuggestionsCard({
                   </div>
                 </div>
 
-                {/* Match Score */}
-                <div className="mb-3 flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-primary" />
-                  <span className="text-sm font-medium text-foreground">
-                    Match Score: {suggestion.matchScore.toFixed(1)}%
-                  </span>
+                {/* Match Score + low-confidence reminder */}
+                <div className="mb-3 flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium text-foreground">
+                      Match Score: {typeof suggestion.matchScore === 'number' ? suggestion.matchScore.toFixed(1) : suggestion.matchScore}
+                    </span>
+                  </div>
+                  {(suggestion.confidence === 'low' || suggestion.confidence === 'medium') && (
+                    <span className="text-xs text-amber-600 dark:text-amber-400">
+                      Use clinical judgment when selecting.
+                    </span>
+                  )}
                 </div>
+
+                {/* Score breakdown – dropdown (doctor opens when needed) */}
+                {suggestion.scoreBreakdown && (
+                  <div className="mb-3">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setScoreBreakdownOpenId((id) =>
+                          id === suggestion.remedy.id ? null : suggestion.remedy.id
+                        )
+                      }
+                      className="flex w-full items-center justify-between rounded-lg border border-border/50 bg-muted/20 px-3 py-2 text-left hover:bg-muted/40 transition-colors"
+                    >
+                      <span className="text-xs font-semibold text-foreground">
+                        Score breakdown
+                      </span>
+                      {scoreBreakdownOpenId === suggestion.remedy.id ? (
+                        <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </button>
+                    {scoreBreakdownOpenId === suggestion.remedy.id && (
+                      <div className="mt-2 rounded-lg border border-border/50 bg-muted/20 p-3">
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
+                          <span className="text-muted-foreground">Base (rubrics)</span>
+                          <span className="text-right font-medium">{suggestion.scoreBreakdown.baseScore.toFixed(1)}</span>
+                          <span className="text-muted-foreground">Constitution</span>
+                          <span className="text-right text-green-600 dark:text-green-400">+{suggestion.scoreBreakdown.constitutionBonus.toFixed(1)}</span>
+                          <span className="text-muted-foreground">Modality</span>
+                          <span className="text-right text-green-600 dark:text-green-400">+{suggestion.scoreBreakdown.modalityBonus.toFixed(1)}</span>
+                          <span className="text-muted-foreground">Pathology</span>
+                          <span className="text-right text-green-600 dark:text-green-400">+{suggestion.scoreBreakdown.pathologySupport.toFixed(1)}</span>
+                          <span className="text-muted-foreground">Keynote</span>
+                          <span className="text-right text-green-600 dark:text-green-400">+{suggestion.scoreBreakdown.keynoteBonus.toFixed(1)}</span>
+                          <span className="text-muted-foreground">Coverage</span>
+                          <span className="text-right text-green-600 dark:text-green-400">+{suggestion.scoreBreakdown.coverageBonus.toFixed(1)}</span>
+                          <span className="text-muted-foreground">Penalty</span>
+                          <span className="text-right text-red-600 dark:text-red-400">-{suggestion.scoreBreakdown.contradictionPenalty.toFixed(1)}</span>
+                          <span className="text-muted-foreground font-medium">Total</span>
+                          <span className="text-right font-semibold">{suggestion.scoreBreakdown.total.toFixed(1)}</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Why This Remedy? - Prominent Section */}
                 <div className="mb-3 rounded-lg border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10 p-4">
@@ -195,7 +249,7 @@ export function RemedySuggestionsCard({
                     </div>
                   )}
 
-                  {/* Matched Rubrics */}
+                  {/* Matched Rubrics + Repertory */}
                   {suggestion.matchedRubrics && suggestion.matchedRubrics.length > 0 && (
                     <div className="mb-3">
                       <div className="flex items-center gap-2 mb-2">
@@ -203,6 +257,11 @@ export function RemedySuggestionsCard({
                         <span className="text-sm font-medium text-foreground">
                           Matched Repertory Rubrics ({suggestion.matchedRubrics.length})
                         </span>
+                        {suggestion.repertoryType && (
+                          <Badge variant="outline" className="text-[10px]">
+                            Repertory: {suggestion.repertoryType === 'publicum' ? 'Publicum (English)' : suggestion.repertoryType}
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground mb-1.5">
                         This remedy appears in authentic repertory rubrics that map to the patient&apos;s symptoms.

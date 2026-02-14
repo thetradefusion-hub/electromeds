@@ -12,6 +12,17 @@ import type { NormalizedCaseProfile } from './caseEngine.service.js';
 import type { SafetyCheckedRemedy } from './contradictionEngine.service.js';
 import ruleEngineConfig from '../config/ruleEngine.config.js';
 
+export interface ScoreBreakdown {
+  baseScore: number;
+  constitutionBonus: number;
+  modalityBonus: number;
+  pathologySupport: number;
+  keynoteBonus: number;
+  coverageBonus: number;
+  contradictionPenalty: number;
+  total: number;
+}
+
 export interface RemedySuggestion {
   remedy: {
     id: string;
@@ -25,8 +36,10 @@ export interface RemedySuggestion {
   clinicalReasoning: string;
   suggestedPotency: string;
   repetition: string;
+  repertoryType?: string;
+  scoreBreakdown?: ScoreBreakdown;
   warnings: Array<{
-    type: 'contradiction' | 'incompatibility' | 'repetition';
+    type: 'contradiction' | 'incompatibility' | 'repetition' | 'contraindication';
     message: string;
     severity: 'low' | 'medium' | 'high';
   }>;
@@ -51,10 +64,13 @@ export class SuggestionEngine {
     filteredRemedies: SafetyCheckedRemedy[],
     normalizedCase: NormalizedCaseProfile
   ): Promise<SuggestionResult> {
-    // Step 8.1: Filter by minimum score threshold
+    // Step 8.1: Filter by minimum score threshold and minimum rubrics (quick win: at least 2 rubrics)
     const MIN_SCORE_THRESHOLD = ruleEngineConfig.scoring.minimumScore;
+    const MIN_RUBRICS = ruleEngineConfig.scoring.minRubricsForSuggestion ?? 2;
     const qualifiedRemedies = filteredRemedies.filter(
-      (r) => r.remedy.finalScore >= MIN_SCORE_THRESHOLD
+      (r) =>
+        r.remedy.finalScore >= MIN_SCORE_THRESHOLD &&
+        (r.remedy.matchedRubrics?.length ?? 0) >= MIN_RUBRICS
     );
 
     // Step 8.2: Filter by confidence (at least medium)
@@ -106,11 +122,30 @@ export class SuggestionEngine {
           remedyDetails
         );
 
-        // Suggest potency
+        // Suggest potency (only from remedy's supported potencies)
         const potencySuggestion = this.suggestPotency(
+          remedyDetails,
           item.remedy.finalScore,
           normalizedCase.isAcute
         );
+
+        // Contraindication check: case pathology/tags vs remedy contraIndications
+        const contraindicationWarnings = this.checkContraindications(
+          remedyDetails,
+          normalizedCase.pathologyTags
+        );
+        const allWarnings = [...item.warnings, ...contraindicationWarnings];
+
+        const scoreBreakdown = {
+          baseScore: item.remedy.baseScore,
+          constitutionBonus: item.remedy.constitutionBonus,
+          modalityBonus: item.remedy.modalityBonus,
+          pathologySupport: item.remedy.pathologySupport,
+          keynoteBonus: item.remedy.keynoteBonus,
+          coverageBonus: item.remedy.coverageBonus,
+          contradictionPenalty: item.remedy.contradictionPenalty,
+          total: item.remedy.finalScore,
+        };
 
         return {
           remedy: {
@@ -125,7 +160,9 @@ export class SuggestionEngine {
           clinicalReasoning,
           suggestedPotency: potencySuggestion.potency,
           repetition: potencySuggestion.repetition,
-          warnings: item.warnings,
+          repertoryType: 'publicum',
+          scoreBreakdown,
+          warnings: allWarnings,
         };
       })
     );
@@ -212,30 +249,91 @@ export class SuggestionEngine {
   }
 
   /**
-   * Suggest potency based on score and case type
+   * Suggest potency from remedy's supportedPotencies only (quick win for safety)
    */
   private suggestPotency(
+    remedyDetails: any,
     finalScore: number,
     isAcute: boolean
   ): { potency: string; repetition: string } {
-    if (isAcute) {
-      if (finalScore >= 80) {
-        return { potency: '200C', repetition: 'Every 1-2 hours' };
-      } else if (finalScore >= 50) {
-        return { potency: '30C', repetition: 'Every 2-4 hours' };
+    const supported = remedyDetails?.supportedPotencies as string[] | undefined;
+    const order = isAcute
+      ? ['200C', '1M', '30C', '6C', '12C'] // prefer higher for acute when score high
+      : ['200C', '1M', '30C', '6C', '12C'];
+
+    let potency = '30C';
+    let repetition = isAcute ? 'Every 2-4 hours' : 'Twice daily';
+
+    if (supported && supported.length > 0) {
+      const preferred = isAcute
+        ? (finalScore >= 80 ? '200C' : finalScore >= 50 ? '30C' : '6C')
+        : (finalScore >= 80 ? '200C' : finalScore >= 60 ? '30C' : '6C');
+      potency = supported.includes(preferred)
+        ? preferred
+        : order.find((p) => supported.includes(p)) || supported[0];
+      if (isAcute) {
+        repetition =
+          potency === '200C'
+            ? 'Every 1-2 hours'
+            : potency === '30C'
+              ? 'Every 2-4 hours'
+              : 'Every 4-6 hours';
       } else {
-        return { potency: '6C', repetition: 'Every 4-6 hours' };
+        repetition =
+          potency === '200C'
+            ? 'Once daily'
+            : potency === '30C'
+              ? 'Twice daily'
+              : 'Three times daily';
       }
     } else {
-      // Chronic case
-      if (finalScore >= 80) {
-        return { potency: '200C', repetition: 'Once daily' };
-      } else if (finalScore >= 60) {
-        return { potency: '30C', repetition: 'Twice daily' };
+      if (isAcute) {
+        potency = finalScore >= 80 ? '200C' : finalScore >= 50 ? '30C' : '6C';
+        repetition =
+          potency === '200C'
+            ? 'Every 1-2 hours'
+            : potency === '30C'
+              ? 'Every 2-4 hours'
+              : 'Every 4-6 hours';
       } else {
-        return { potency: '6C', repetition: 'Three times daily' };
+        potency = finalScore >= 80 ? '200C' : finalScore >= 60 ? '30C' : '6C';
+        repetition =
+          potency === '200C' ? 'Once daily' : potency === '30C' ? 'Twice daily' : 'Three times daily';
       }
     }
+
+    return { potency, repetition };
+  }
+
+  /**
+   * Check remedy contraindications against case pathology/tags; return warnings
+   */
+  private checkContraindications(
+    remedyDetails: any,
+    pathologyTags: string[]
+  ): Array<{ type: 'contraindication'; message: string; severity: 'low' | 'medium' | 'high' }> {
+    const contra = (remedyDetails?.contraIndications as string) || '';
+    if (!contra.trim() || pathologyTags.length === 0) return [];
+
+    const contraLower = contra.toLowerCase();
+    const warnings: Array<{
+      type: 'contraindication';
+      message: string;
+      severity: 'low' | 'medium' | 'high';
+    }> = [];
+
+    for (const tag of pathologyTags) {
+      const tagLower = tag.toLowerCase();
+      if (tagLower && contraLower.includes(tagLower)) {
+        warnings.push({
+          type: 'contraindication',
+          message: `Caution: This remedy has contraindications that may relate to "${tag}". Please verify before prescribing.`,
+          severity: tagLower.includes('pregnancy') || tagLower.includes('child') ? 'high' : 'medium',
+        });
+        break;
+      }
+    }
+    return warnings;
   }
 }
 

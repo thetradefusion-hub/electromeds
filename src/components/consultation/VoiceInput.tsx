@@ -1,10 +1,11 @@
 /**
  * Voice Input Component
- * 
- * Component for voice-based case input with real-time transcription
+ *
+ * Records audio and transcribes via OpenAI Whisper (server-side).
+ * Works in any browser that supports MediaRecorder + getUserMedia.
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,10 +16,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Mic, MicOff, Square, Pause, Play, Trash2, AlertCircle } from 'lucide-react';
-import { useVoiceRecorder } from '@/hooks/useVoiceRecorder';
+import { Mic, Square, Pause, Play, Trash2, AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { transcribeAudio } from '@/lib/api/aiCaseTaking.api';
 
 interface VoiceInputProps {
   onTranscriptReady?: (transcript: string) => void;
@@ -34,6 +35,10 @@ const SUPPORTED_LANGUAGES = [
   { value: 'fr-FR', label: 'French' },
 ];
 
+function isVoiceSupported(): boolean {
+  return !!(navigator.mediaDevices?.getUserMedia && window.MediaRecorder);
+}
+
 export function VoiceInput({
   onTranscriptReady,
   onExtract,
@@ -41,66 +46,121 @@ export function VoiceInput({
 }: VoiceInputProps) {
   const [selectedLanguage, setSelectedLanguage] = useState('en-US');
   const [transcript, setTranscript] = useState('');
+  const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [transcribing, setTranscribing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const {
-    isRecording,
-    isPaused,
-    transcript: currentTranscript,
-    interimTranscript,
-    error,
-    isSupported,
-    startRecording,
-    stopRecording,
-    pauseRecording,
-    resumeRecording,
-    clearTranscript,
-  } = useVoiceRecorder({
-    language: selectedLanguage,
-    continuous: true,
-    interimResults: true,
-    onTranscriptUpdate: (fullTranscript) => {
-      setTranscript(fullTranscript);
-      if (onTranscriptReady) {
-        onTranscriptReady(fullTranscript);
-      }
-    },
-    onError: (errorMessage) => {
-      toast.error(errorMessage);
-    },
-  });
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
 
-  // Update transcript when it changes
-  useEffect(() => {
-    setTranscript(currentTranscript + interimTranscript);
-  }, [currentTranscript, interimTranscript]);
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
-  const handleStart = () => {
-    if (!isSupported) {
-      toast.error('Voice recognition is not supported in your browser.');
-      return;
+  const stopStream = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  }, []);
+
+  const handleStart = useCallback(async () => {
+    setError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      chunksRef.current = [];
+
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+
+      recorder.start(1000);
+      setIsRecording(true);
+      setIsPaused(false);
+      setRecordingTime(0);
+      toast.info('Recording started. Speak clearly. Stop when done to transcribe.');
+    } catch (err: any) {
+      const msg = err?.message || 'Could not access microphone';
+      setError(msg);
+      toast.error(msg);
     }
-    startRecording();
-    toast.info('Recording started. Speak clearly...');
-  };
+  }, []);
 
-  const handleStop = () => {
-    stopRecording();
-    toast.success('Recording stopped.');
-  };
+  const handlePause = useCallback(() => {
+    const rec = mediaRecorderRef.current;
+    if (rec && rec.state === 'recording') {
+      rec.pause();
+      setIsPaused(true);
+      toast.info('Recording paused.');
+    }
+  }, []);
 
-  const handlePause = () => {
-    pauseRecording();
-    toast.info('Recording paused.');
-  };
+  const handleResume = useCallback(() => {
+    const rec = mediaRecorderRef.current;
+    if (rec && rec.state === 'paused') {
+      rec.resume();
+      setIsPaused(false);
+      toast.info('Recording resumed.');
+    }
+  }, []);
 
-  const handleResume = () => {
-    resumeRecording();
-    toast.info('Recording resumed.');
-  };
+  const handleStop = useCallback(async () => {
+    const rec = mediaRecorderRef.current;
+    if (!rec || (rec.state !== 'recording' && rec.state !== 'paused')) return;
+
+    rec.onstop = async () => {
+      stopStream();
+      mediaRecorderRef.current = null;
+      setIsRecording(false);
+      setIsPaused(false);
+      setRecordingTime(0);
+
+      const chunks = chunksRef.current;
+      if (chunks.length === 0) {
+        toast.error('No audio recorded.');
+        return;
+      }
+
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      setTranscribing(true);
+      setError(null);
+      try {
+        const { text } = await transcribeAudio(blob, selectedLanguage);
+        setTranscript(text);
+        if (onTranscriptReady) onTranscriptReady(text);
+        toast.success('Transcription ready.');
+      } catch (err: any) {
+        const msg = err?.message || 'Transcription failed';
+        setError(msg);
+        toast.error(msg);
+      } finally {
+        setTranscribing(false);
+      }
+    };
+
+    rec.stop();
+    toast.info('Recording stopped. Transcribing…');
+  }, [selectedLanguage, onTranscriptReady, stopStream]);
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+    if (isRecording && !isPaused) {
+      interval = setInterval(() => setRecordingTime((p) => p + 1), 1000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isRecording, isPaused]);
 
   const handleClear = () => {
-    clearTranscript();
     setTranscript('');
+    setError(null);
     toast.info('Transcript cleared.');
   };
 
@@ -109,43 +169,17 @@ export function VoiceInput({
       toast.error('No transcript available. Please record something first.');
       return;
     }
-    if (onExtract) {
-      onExtract(transcript.trim());
-    }
+    onExtract?.(transcript.trim());
   };
 
-  // Calculate recording time (simplified - you can enhance this)
-  const [recordingTime, setRecordingTime] = useState(0);
-  useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
-    if (isRecording && !isPaused) {
-      interval = setInterval(() => {
-        setRecordingTime((prev) => prev + 1);
-      }, 1000);
-    } else {
-      if (interval) clearInterval(interval);
-      if (!isRecording) {
-        setRecordingTime(0);
-      }
-    }
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isRecording, isPaused]);
+  const supported = isVoiceSupported();
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  if (!isSupported) {
+  if (!supported) {
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
         <AlertDescription>
-          Voice recognition is not supported in this browser. Please use Chrome, Edge, or Safari for
-          voice input.
+          Voice recording is not supported in this browser. Please use a modern browser (Chrome, Edge, Firefox, Safari) with microphone access.
         </AlertDescription>
       </Alert>
     );
@@ -153,10 +187,9 @@ export function VoiceInput({
 
   return (
     <div className="space-y-4">
-      {/* Language Selection */}
       <div className="flex items-center gap-3">
         <label className="text-sm font-medium">Language:</label>
-        <Select value={selectedLanguage} onValueChange={setSelectedLanguage} disabled={isRecording}>
+        <Select value={selectedLanguage} onValueChange={setSelectedLanguage} disabled={isRecording || transcribing}>
           <SelectTrigger className="w-[180px]">
             <SelectValue />
           </SelectTrigger>
@@ -173,9 +206,14 @@ export function VoiceInput({
             Recording: {formatTime(recordingTime)}
           </Badge>
         )}
+        {transcribing && (
+          <Badge variant="outline" className="flex items-center gap-1">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            Transcribing…
+          </Badge>
+        )}
       </div>
 
-      {/* Error Display */}
       {error && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
@@ -183,10 +221,9 @@ export function VoiceInput({
         </Alert>
       )}
 
-      {/* Recording Controls */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Voice Recording</CardTitle>
+          <CardTitle className="text-base">Voice Recording (Whisper)</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-center gap-3">
@@ -195,6 +232,7 @@ export function VoiceInput({
                 onClick={handleStart}
                 size="lg"
                 className="rounded-full h-16 w-16 bg-primary hover:bg-primary/90"
+                disabled={transcribing}
               >
                 <Mic className="h-6 w-6" />
               </Button>
@@ -202,19 +240,10 @@ export function VoiceInput({
 
             {isRecording && !isPaused && (
               <>
-                <Button
-                  onClick={handlePause}
-                  variant="outline"
-                  size="lg"
-                  className="rounded-full h-12 w-12"
-                >
+                <Button onClick={handlePause} variant="outline" size="lg" className="rounded-full h-12 w-12">
                   <Pause className="h-5 w-5" />
                 </Button>
-                <Button
-                  onClick={handleStop}
-                  size="lg"
-                  className="rounded-full h-16 w-16 bg-red-500 hover:bg-red-600"
-                >
+                <Button onClick={handleStop} size="lg" className="rounded-full h-16 w-16 bg-red-500 hover:bg-red-600">
                   <Square className="h-6 w-6" />
                 </Button>
               </>
@@ -222,53 +251,35 @@ export function VoiceInput({
 
             {isPaused && (
               <>
-                <Button
-                  onClick={handleResume}
-                  size="lg"
-                  className="rounded-full h-16 w-16 bg-primary hover:bg-primary/90"
-                >
+                <Button onClick={handleResume} size="lg" className="rounded-full h-16 w-16 bg-primary hover:bg-primary/90">
                   <Play className="h-6 w-6" />
                 </Button>
-                <Button
-                  onClick={handleStop}
-                  variant="outline"
-                  size="lg"
-                  className="rounded-full h-12 w-12"
-                >
+                <Button onClick={handleStop} variant="outline" size="lg" className="rounded-full h-12 w-12">
                   <Square className="h-5 w-5" />
                 </Button>
               </>
             )}
 
-            {transcript && (
-              <Button
-                onClick={handleClear}
-                variant="ghost"
-                size="lg"
-                className="rounded-full h-12 w-12"
-                title="Clear transcript"
-              >
+            {transcript && !isRecording && (
+              <Button onClick={handleClear} variant="ghost" size="lg" className="rounded-full h-12 w-12" title="Clear transcript">
                 <Trash2 className="h-5 w-5" />
               </Button>
             )}
           </div>
 
-          {/* Status Text */}
           <div className="text-center">
             {isRecording && !isPaused && (
-              <p className="text-sm text-muted-foreground animate-pulse">
-                🎤 Recording... Speak clearly
-              </p>
+              <p className="text-sm text-muted-foreground animate-pulse">🎤 Recording… Speak clearly</p>
             )}
             {isPaused && <p className="text-sm text-muted-foreground">⏸️ Paused</p>}
-            {!isRecording && !isPaused && !transcript && (
+            {transcribing && <p className="text-sm text-muted-foreground">Transcribing with Whisper…</p>}
+            {!isRecording && !transcript && !transcribing && (
               <p className="text-sm text-muted-foreground">Click the microphone to start recording</p>
             )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Transcript Display */}
       {transcript && (
         <Card>
           <CardHeader>
@@ -280,15 +291,8 @@ export function VoiceInput({
           <CardContent>
             <div className="space-y-3">
               <div className="min-h-[150px] max-h-[300px] overflow-y-auto rounded-lg border border-border/50 bg-muted/30 p-4">
-                <p className="text-sm whitespace-pre-wrap">
-                  <span className="text-foreground">{currentTranscript}</span>
-                  {interimTranscript && (
-                    <span className="text-muted-foreground italic">{interimTranscript}</span>
-                  )}
-                </p>
+                <p className="text-sm whitespace-pre-wrap text-foreground">{transcript}</p>
               </div>
-
-              {/* Action Buttons */}
               <div className="flex gap-2">
                 <Button
                   onClick={handleExtract}
@@ -303,17 +307,16 @@ export function VoiceInput({
         </Card>
       )}
 
-      {/* Instructions */}
-      {!transcript && !isRecording && (
+      {!transcript && !isRecording && !transcribing && (
         <Card className="border-dashed">
           <CardContent className="pt-6">
             <div className="text-center space-y-2">
               <Mic className="h-8 w-8 mx-auto text-muted-foreground opacity-50" />
               <p className="text-sm text-muted-foreground">
-                Click the microphone button to start recording your case notes
+                Record your case notes. When you stop, the audio is sent to Whisper for accurate transcription.
               </p>
               <p className="text-xs text-muted-foreground">
-                Speak clearly and naturally. The system will transcribe your speech in real-time.
+                Works in all modern browsers. Better accuracy and Hindi/English mix than browser-only recognition.
               </p>
             </div>
           </CardContent>

@@ -31,6 +31,17 @@ export interface StructuredCaseInput {
   pathologyTags: string[];
 }
 
+export interface ScoreBreakdown {
+  baseScore: number;
+  constitutionBonus: number;
+  modalityBonus: number;
+  pathologySupport: number;
+  keynoteBonus: number;
+  coverageBonus: number;
+  contradictionPenalty: number;
+  total: number;
+}
+
 export interface RemedySuggestion {
   remedy: {
     id: string;
@@ -44,9 +55,12 @@ export interface RemedySuggestion {
   clinicalReasoning: string;
   matchedSymptoms?: string[];
   matchedRubrics?: string[];
+  repertoryType?: string;
+  scoreBreakdown?: ScoreBreakdown;
   warnings?: Array<{
-    type: 'contradiction' | 'incompatibility' | 'repetition';
+    type: 'contradiction' | 'incompatibility' | 'repetition' | 'contraindication';
     message: string;
+    severity?: 'low' | 'medium' | 'high';
   }>;
 }
 
@@ -182,17 +196,22 @@ class ClassicalHomeopathyAPI {
   }
 
   /**
-   * Get remedy suggestions for a structured case
+   * Get remedy suggestions for a structured case.
+   * If selectedRubricIds is provided (from user-confirmed rubrics in AI input), those rubrics are used for repertory lookup.
    */
   async suggestRemedies(
     patientId: string,
-    structuredCase: StructuredCaseInput
+    structuredCase: StructuredCaseInput,
+    patientHistory?: Array<{ remedyId: string; date: string }>,
+    selectedRubricIds?: string[]
   ): Promise<ApiResponse<SuggestionResponse>> {
     const response = await api.post<ApiResponse<SuggestionResponse>>(
       `${API_URL}/suggest`,
       {
         patientId,
         structuredCase,
+        ...(patientHistory && { patientHistory }),
+        ...(selectedRubricIds && selectedRubricIds.length > 0 && { selectedRubricIds }),
       }
     );
     return response.data;

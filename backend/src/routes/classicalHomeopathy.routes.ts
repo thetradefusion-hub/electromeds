@@ -16,6 +16,7 @@ import {
   updateQuestionAnswers,
   getRemedyStatistics,
   getSymptomRemedyPatterns,
+  getRemedyProfile,
 } from '../controllers/classicalHomeopathy.controller.js';
 import { authenticate, authorize } from '../middleware/auth.middleware.js';
 
@@ -63,6 +64,14 @@ const suggestValidation = [
     .optional()
     .isArray()
     .withMessage('Patient history must be an array'),
+  body('selectedRubricIds')
+    .optional()
+    .isArray()
+    .withMessage('Selected rubric IDs must be an array'),
+  body('selectedRubricIds.*')
+    .optional()
+    .isString()
+    .withMessage('Each rubric ID must be a string'),
 ];
 
 const updateDecisionValidation = [
@@ -106,6 +115,7 @@ const updateOutcomeValidation = [
 
 // Routes
 router.get('/remedies', getRemedies);
+router.get('/remedies/:id/profile', getRemedyProfile);
 router.post('/suggest', suggestValidation, suggestRemedies);
 router.get('/case/patient/:patientId', getPatientCaseRecords);
 router.put('/case/:id/decision', updateDecisionValidation, updateDoctorDecision);

@@ -13,6 +13,7 @@ import Prescription from '../models/Prescription.model.js';
 import Remedy from '../models/Remedy.model.js';
 import ClassicalHomeopathyRuleEngine from '../services/classicalHomeopathyRuleEngine.service.js';
 import OutcomeLearningHook from '../services/outcomeLearning.service.js';
+import remedyProfileGenerator from '../services/remedyProfileGenerator.service.js';
 import { generatePrescriptionNo } from '../utils/generateId.js';
 import type { StructuredCase } from '../services/caseEngine.service.js';
 
@@ -29,7 +30,7 @@ export const suggestRemedies = async (
   try {
     console.log('[suggestRemedies] Request received');
     const userId = req.user!.id;
-    const { patientId, structuredCase, patientHistory } = req.body;
+    const { patientId, structuredCase, patientHistory, selectedRubricIds } = req.body;
 
     console.log('[suggestRemedies] Request data:', {
       patientId,
@@ -105,13 +106,23 @@ export const suggestRemedies = async (
     console.log('[suggestRemedies] Initializing rule engine...');
     const ruleEngine = new ClassicalHomeopathyRuleEngine();
 
-    // Process case
-    console.log('[suggestRemedies] Processing case...');
+    // Normalize patientHistory dates (from JSON they may be strings)
+    const normalizedHistory =
+      Array.isArray(patientHistory) && patientHistory.length > 0
+        ? patientHistory.map((h: { remedyId: string; date: string | Date }) => ({
+            remedyId: h.remedyId,
+            date: h.date instanceof Date ? h.date : new Date(h.date),
+          }))
+        : undefined;
+
+    // Process case (optionally with user-confirmed rubric IDs from AI input)
+    console.log('[suggestRemedies] Processing case...', selectedRubricIds?.length ? `with ${selectedRubricIds.length} user-selected rubrics` : '', normalizedHistory?.length ? `with ${normalizedHistory.length} past remedies` : '');
     const result = await ruleEngine.processCase(
       doctorId,
       new mongoose.Types.ObjectId(patientId),
       structuredCase as StructuredCase,
-      patientHistory
+      normalizedHistory,
+      selectedRubricIds
     );
 
     console.log('[suggestRemedies] Case processed successfully:', {
@@ -439,7 +450,7 @@ export const updateOutcome = async (
 
 /**
  * @route   GET /api/classical-homeopathy/remedies
- * @desc    Get all remedies (global + doctor-specific)
+ * @desc    Get all remedies (global + doctor-specific) with search, filter, and sort
  * @access  Private (Doctor only)
  */
 export const getRemedies = async (
@@ -449,6 +460,7 @@ export const getRemedies = async (
 ): Promise<void> => {
   try {
     const userId = req.user!.id;
+    const { search, category, sortBy = 'name', page = 1, limit = 1000 } = req.query;
 
     // Find doctor ID
     const doctor = await Doctor.findOne({ userId });
@@ -472,27 +484,125 @@ export const getRemedies = async (
         success: true,
         count: 0,
         data: [],
+        pagination: {
+          page: 1,
+          limit: Number(limit),
+          total: 0,
+          pages: 0,
+        },
       });
       return;
     }
 
-    // Get global remedies and doctor-specific remedies
-    // All remedies have modality: 'classical_homeopathy' by default
-    const remedies = await Remedy.find({
+    // Build query: base + optional search + category
+    const baseMatch = {
       $or: [{ isGlobal: true }, { doctorId }],
       modality: 'classical_homeopathy',
-    })
-      .sort({ name: 1 })
-      .lean();
+    } as any;
 
-    console.log(`[getRemedies] Found ${remedies.length} remedies for doctor ${doctorId?.toString() || 'none'}, doctor modality: ${doctor?.modality || 'none'}`);
+    if (category && typeof category === 'string' && category !== 'all') {
+      baseMatch.category = category;
+    }
+
+    const andConditions: any[] = [baseMatch];
+
+    if (search && typeof search === 'string') {
+      const searchRegex = new RegExp(search, 'i');
+      andConditions.push({
+        $or: [
+          { name: searchRegex },
+          { 'materiaMedica.keynotes': { $in: [searchRegex] } },
+          { 'materiaMedica.pathogenesis': searchRegex },
+          { 'materiaMedica.clinicalNotes': searchRegex },
+          { clinicalIndications: { $in: [searchRegex] } },
+          { constitutionTraits: { $in: [searchRegex] } },
+        ],
+      });
+    }
+
+    const query = andConditions.length === 1 ? baseMatch : { $and: andConditions };
+
+    // Sort options
+    let sortOption: any = { name: 1 }; // Default: sort by name
+    if (sortBy === 'name') {
+      sortOption = { name: 1 };
+    } else if (sortBy === 'category') {
+      sortOption = { category: 1, name: 1 };
+    }
+
+    // Pagination
+    const skip = (Number(page) - 1) * Number(limit);
+
+    // Get remedies with pagination
+    const [remedies, total] = await Promise.all([
+      Remedy.find(query)
+        .sort(sortOption)
+        .skip(skip)
+        .limit(Number(limit))
+        .lean(),
+      Remedy.countDocuments(query),
+    ]);
+
+    console.log(`[getRemedies] Found ${remedies.length} remedies (${total} total) for doctor ${doctorId?.toString() || 'none'}, doctor modality: ${doctor?.modality || 'none'}`);
 
     res.json({
       success: true,
       count: remedies.length,
       data: remedies,
+      pagination: {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        pages: Math.ceil(total / Number(limit)),
+      },
     });
   } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @route   GET /api/classical-homeopathy/remedies/:id/profile
+ * @desc    Get AI-generated remedy profile (Quick Highlights, Mind, Physical, Modalities, Differentials)
+ * @access  Private (Doctor only)
+ */
+export const getRemedyProfile = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const doctor = await Doctor.findOne({ userId: req.user!.id });
+    const doctorId = doctor?._id;
+
+    const remedy = await Remedy.findOne({
+      _id: id,
+      $or: [{ isGlobal: true }, { doctorId }],
+    }).lean();
+
+    if (!remedy) {
+      res.status(404).json({ success: false, message: 'Remedy not found' });
+      return;
+    }
+
+    const existingData = {
+      category: remedy.category,
+      materiaMedica: remedy.materiaMedica,
+      modalities: remedy.modalities,
+    };
+
+    const profile = await remedyProfileGenerator.generateProfile(remedy.name, existingData);
+
+    res.json({
+      success: true,
+      data: {
+        remedyId: remedy._id,
+        ...profile,
+      },
+    });
+  } catch (error: any) {
+    console.error('[getRemedyProfile] Error:', error?.message);
     next(error);
   }
 };

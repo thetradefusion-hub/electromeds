@@ -36,6 +36,8 @@ interface ClassicalSymptomSelectorProps {
   title: string;
   icon: React.ReactNode;
   description?: string;
+  /** Search query from parent (e.g. manual case search rubrics box) – filters list when set */
+  searchQuery?: string;
 }
 
 export function ClassicalSymptomSelector({
@@ -48,6 +50,7 @@ export function ClassicalSymptomSelector({
   title,
   icon,
   description,
+  searchQuery = '',
 }: ClassicalSymptomSelectorProps) {
   const [search, setSearch] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
@@ -56,8 +59,10 @@ export function ClassicalSymptomSelector({
   const [sensation, setSensation] = useState('');
   const [type, setType] = useState<'better' | 'worse'>('worse');
 
-  // Filter symptoms by category and modality
-  // Allow all symptoms that match modality filter - users can assign them to any category
+  // Use parent search (manual case "Search rubrics" box) or internal search
+  const effectiveSearch = (searchQuery || search).trim();
+
+  // Filter symptoms by modality and search (name or code)
   const filteredSymptoms = useMemo(() => {
     const filtered = symptoms.filter(
       (s) => {
@@ -67,26 +72,16 @@ export function ClassicalSymptomSelector({
         // Don't filter by category - allow all symptoms, user will assign category when adding
         // This is more flexible and user-friendly
         
-        const searchMatch = s.name.toLowerCase().includes(search.toLowerCase());
+        const searchLower = effectiveSearch.toLowerCase();
+        const searchMatch = !effectiveSearch ||
+          s.name.toLowerCase().includes(searchLower) ||
+          (s.code && s.code.toLowerCase().includes(searchLower));
         const notSelected = !selectedSymptoms.find((ss) => ss.symptomId === s.id);
-        
         return modalityMatch && searchMatch && notSelected;
       }
     );
-    
-    // Debug logging
-    if (search && filtered.length === 0) {
-      console.log('🔍 ClassicalSymptomSelector Debug:', {
-        category,
-        search,
-        totalSymptoms: symptoms.length,
-        modalityMatch: symptoms.filter(s => s.modality === 'classical_homeopathy' || !s.modality).length,
-        searchMatch: symptoms.filter(s => s.name.toLowerCase().includes(search.toLowerCase())).length,
-      });
-    }
-    
     return filtered;
-  }, [symptoms, search, selectedSymptoms, category]);
+  }, [symptoms, effectiveSearch, selectedSymptoms, category]);
 
   // Get selected symptoms for this category
   const categorySymptoms = selectedSymptoms.filter((s) => s.category === category);
@@ -186,8 +181,56 @@ export function ClassicalSymptomSelector({
         </button>
       </div>
 
+      {/* Search results from parent "Search rubrics" box – show when user types in header search */}
+      {effectiveSearch && (
+        <div className="mb-4 rounded-lg border border-border/50 bg-muted/20 p-3">
+          <p className="text-xs font-medium text-muted-foreground mb-2">
+            Rubrics matching &quot;{effectiveSearch}&quot;
+          </p>
+          {filteredSymptoms.length > 0 ? (
+            <div className="max-h-48 overflow-y-auto space-y-1">
+              {filteredSymptoms.slice(0, 20).map((symptom) => (
+                <div
+                  key={symptom.id}
+                  className="flex items-center justify-between rounded-md border border-border/30 bg-background px-3 py-2 text-sm hover:bg-muted/50"
+                >
+                  <div>
+                    <span className="font-medium text-foreground">{symptom.name}</span>
+                    {symptom.code && (
+                      <span className="ml-2 text-xs text-muted-foreground">{symptom.code}</span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newSymptom: SelectedSymptom = {
+                        symptomId: symptom.id,
+                        symptom,
+                        category,
+                        ...(category === 'modality' && { type: 'worse' }),
+                      };
+                      onAdd(newSymptom);
+                    }}
+                    className="rounded-md border border-primary/50 bg-primary/10 px-2 py-1 text-xs font-medium text-primary hover:bg-primary/20"
+                  >
+                    + Add
+                  </button>
+                </div>
+              ))}
+              {filteredSymptoms.length > 20 && (
+                <p className="text-xs text-muted-foreground pt-1">Showing first 20. Refine search for more.</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground py-2">
+              No rubrics found. Try a different search (e.g. Anxiety, Fever, worse morning).
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Guidance Info Card */}
-      {categorySymptoms.length === 0 && !showAddForm && (
+      {categorySymptoms.length === 0 && !showAddForm && !effectiveSearch && (
         <div className="rounded-lg border border-primary/20 bg-primary/5 p-4">
           <div className="flex items-start gap-3">
             <Info className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />

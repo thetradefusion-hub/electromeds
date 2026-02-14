@@ -14,31 +14,61 @@ import { ExtractedEntitiesList } from './ExtractedEntitiesList';
 import { ExtractedModalitiesList } from './ExtractedModalitiesList';
 import { MetaAttributesDisplay } from './MetaAttributesDisplay';
 import { Loader2, FileText, Mic } from 'lucide-react';
-import { extractSymptoms, ExtractedSymptom, ExtractedEntity, ExtractedModality, MetaAttributes } from '@/lib/api/aiCaseTaking.api';
+import { extractSymptoms, ExtractedSymptom, ExtractedEntity, ExtractedModality, MetaAttributes, RubricSuggestion } from '@/lib/api/aiCaseTaking.api';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 
 interface AICaseInputProps {
   onSymptomsExtracted?: (symptoms: ExtractedSymptom[]) => void;
   onSymptomsConfirmed?: (symptoms: ExtractedSymptom[]) => void;
+  /** Notify parent when user selects rubrics for a symptom (so AI Interpretation panel can show them) */
+  onSymptomRubricsChange?: (symptomCode: string, rubrics: RubricSuggestion[]) => void;
+  /** When provided, narrative text is controlled by parent so it persists after confirm/re-analyze */
+  narrativeValue?: string;
+  onNarrativeChange?: (value: string) => void;
+  /** When true, only show narrative input + Extract; parent handles extraction and shows result in another column */
+  narrativeOnly?: boolean;
+  /** When narrativeOnly, parent provides extract logic; called when user clicks Extract */
+  onExtractRequest?: () => Promise<void>;
+  /** When narrativeOnly, extracting state from parent */
+  extracting?: boolean;
+  /** When narrativeOnly, parent can control Use NLP checkbox */
+  useNLP?: boolean;
+  onUseNLPChange?: (value: boolean) => void;
 }
 
 export function AICaseInput({
   onSymptomsExtracted,
   onSymptomsConfirmed,
+  onSymptomRubricsChange,
+  narrativeValue,
+  onNarrativeChange,
+  narrativeOnly,
+  onExtractRequest,
+  extracting: extractingProp,
+  useNLP: useNLPProp,
+  onUseNLPChange,
 }: AICaseInputProps) {
   const [activeTab, setActiveTab] = useState<'text' | 'voice' | 'structured'>('text');
-  const [textInput, setTextInput] = useState('');
+  const [internalText, setInternalText] = useState('');
+  const isControlled = narrativeValue !== undefined && onNarrativeChange !== undefined;
+  const textInput = isControlled ? narrativeValue : internalText;
+  const setTextInput = isControlled ? onNarrativeChange : setInternalText;
   const [extractedSymptoms, setExtractedSymptoms] = useState<ExtractedSymptom[]>([]);
   const [extractedEntities, setExtractedEntities] = useState<ExtractedEntity[]>([]);
   const [extractedModalities, setExtractedModalities] = useState<ExtractedModality[]>([]);
   const [metaAttributes, setMetaAttributes] = useState<MetaAttributes | undefined>();
-  const [extracting, setExtracting] = useState(false);
+  const [extractingLocal, setExtractingLocal] = useState(false);
+  const extracting = narrativeOnly && extractingProp !== undefined ? extractingProp : extractingLocal;
   const [confirmedSymptoms, setConfirmedSymptoms] = useState<ExtractedSymptom[]>([]);
-  const [useNLP, setUseNLP] = useState(true); // Default to NLP if available
+  const [useNLPInternal, setUseNLPInternal] = useState(true);
+  const useNLP = useNLPProp !== undefined ? useNLPProp : useNLPInternal;
+  const setUseNLP = onUseNLPChange ?? setUseNLPInternal;
   const [extractionMethod, setExtractionMethod] = useState<'nlp' | 'keyword' | 'hybrid' | undefined>();
   const [showRubricSelector, setShowRubricSelector] = useState(false);
   const [selectedSymptomForRubrics, setSelectedSymptomForRubrics] = useState<ExtractedSymptom | null>(null);
+  // Store user-confirmed rubrics per symptom (keyed by symptomCode) so they are used when adding to case
+  const [symptomSelectedRubrics, setSymptomSelectedRubrics] = useState<Record<string, RubricSuggestion[]>>({});
 
   const handleExtract = async (text?: string) => {
     // Ensure textToExtract is always a string
@@ -49,12 +79,20 @@ export function AICaseInput({
       return;
     }
 
-    setExtracting(true);
-    // Clear previous extractions
-    setExtractedSymptoms([]);
+    if (!narrativeOnly) setExtractingLocal(true);
+    else setExtractingLocal(false); // parent controls when narrativeOnly
+    // Clear previous extractions (only when not narrativeOnly - parent holds state then)
+    if (!narrativeOnly) {
+      setExtractedSymptoms([]);
     setExtractedEntities([]);
     setExtractedModalities([]);
     setMetaAttributes(undefined);
+    }
+    
+    if (narrativeOnly && onExtractRequest) {
+      await onExtractRequest();
+      return;
+    }
     
     try {
       const result = await extractSymptoms({
@@ -117,23 +155,23 @@ export function AICaseInput({
         toast.error(error.message || 'Failed to extract symptoms');
       }
     } finally {
-      setExtracting(false);
+      if (!narrativeOnly) setExtractingLocal(false);
     }
   };
 
   const handleVoiceTranscript = (transcript: string) => {
-    // Update text input with voice transcript
     setTextInput(transcript);
   };
 
   const handleConfirmSymptom = (symptom: ExtractedSymptom) => {
-    // Remove from extracted, add to confirmed
+    const rubrics = symptomSelectedRubrics[symptom.symptomCode] ?? symptom.selectedRubrics;
+    const symptomWithRubrics: ExtractedSymptom = rubrics?.length ? { ...symptom, selectedRubrics: rubrics } : symptom;
     setExtractedSymptoms((prev) => prev.filter((s) => s.symptomCode !== symptom.symptomCode));
-    setConfirmedSymptoms((prev) => [...prev, symptom]);
-    
-    if (onSymptomsConfirmed) {
-      onSymptomsConfirmed([...confirmedSymptoms, symptom]);
-    }
+    setConfirmedSymptoms((prev) => {
+      const next = [...prev, symptomWithRubrics];
+      if (onSymptomsConfirmed) onSymptomsConfirmed(next);
+      return next;
+    });
   };
 
   const handleRejectSymptom = (symptom: ExtractedSymptom) => {
@@ -147,12 +185,17 @@ export function AICaseInput({
   };
 
   const handleConfirmAll = () => {
-    setConfirmedSymptoms((prev) => [...prev, ...extractedSymptoms]);
-    if (onSymptomsConfirmed) {
-      onSymptomsConfirmed([...confirmedSymptoms, ...extractedSymptoms]);
-    }
+    const withRubrics: ExtractedSymptom[] = extractedSymptoms.map((s) => {
+      const rubrics = symptomSelectedRubrics[s.symptomCode] ?? s.selectedRubrics;
+      return rubrics?.length ? { ...s, selectedRubrics: rubrics } : s;
+    });
+    setConfirmedSymptoms((prev) => {
+      const next = [...prev, ...withRubrics];
+      if (onSymptomsConfirmed) onSymptomsConfirmed(next);
+      return next;
+    });
     setExtractedSymptoms([]);
-    toast.success(`Confirmed ${extractedSymptoms.length} symptoms`);
+    toast.success(`Confirmed ${withRubrics.length} symptoms`);
   };
 
   const handleRejectAll = () => {
@@ -168,9 +211,15 @@ export function AICaseInput({
     setShowRubricSelector(true);
   };
 
-  const handleRubricsSelected = (selectedRubrics: any[]) => {
-    toast.success(`Selected ${selectedRubrics.length} rubric(s) for ${selectedSymptomForRubrics?.symptomName}`);
-    // TODO: Store selected rubrics with the symptom
+  const handleRubricsSelected = (selected: RubricSuggestion[]) => {
+    if (selectedSymptomForRubrics && selected.length > 0) {
+      setSymptomSelectedRubrics((prev) => ({
+        ...prev,
+        [selectedSymptomForRubrics.symptomCode]: selected,
+      }));
+      onSymptomRubricsChange?.(selectedSymptomForRubrics.symptomCode, selected);
+      toast.success(`Saved ${selected.length} rubric(s) for "${selectedSymptomForRubrics.symptomName}". They will be used when you add this symptom to the case.`);
+    }
     setShowRubricSelector(false);
     setSelectedSymptomForRubrics(null);
   };
@@ -220,66 +269,61 @@ export function AICaseInput({
               <FreeTextInput
                 value={textInput}
                 onChange={setTextInput}
-                onExtract={() => handleExtract()}
+                onExtract={narrativeOnly && onExtractRequest ? () => onExtractRequest() : () => handleExtract()}
                 extracting={extracting}
               />
             </div>
 
-            {/* Meta Attributes (shown first if available) */}
-            {metaAttributes && (
-              <div className="border-t pt-4">
-                <MetaAttributesDisplay metaAttributes={metaAttributes} />
-              </div>
-            )}
-
-            {/* Extracted Entities */}
-            {extractedEntities.length > 0 && (
-              <div className="border-t pt-4">
-                <ExtractedEntitiesList entities={extractedEntities} />
-              </div>
-            )}
-
-            {/* Extracted Modalities */}
-            {extractedModalities.length > 0 && (
-              <div className="border-t pt-4">
-                <ExtractedModalitiesList modalities={extractedModalities} />
-              </div>
-            )}
-
-            {/* Extracted Symptoms */}
-            {extractedSymptoms.length > 0 && (
-              <div className="border-t pt-4">
-                <ExtractedSymptomsList
-                  symptoms={extractedSymptoms}
-                  onConfirm={handleConfirmSymptom}
-                  onReject={handleRejectSymptom}
-                  onUpdate={handleUpdateSymptom}
-                  onConfirmAll={handleConfirmAll}
-                  onRejectAll={handleRejectAll}
-                  onSuggestRubrics={handleSuggestRubrics}
-                />
-              </div>
-            )}
-
-            {/* Confirmed Symptoms Summary */}
-            {confirmedSymptoms.length > 0 && (
-              <div className="border-t pt-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium">
-                    Confirmed Symptoms ({confirmedSymptoms.length})
-                  </h3>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {confirmedSymptoms.map((symptom, index) => (
-                    <div
-                      key={`${symptom.symptomCode}-${index}`}
-                      className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded border border-green-300"
-                    >
-                      {symptom.symptomName} ({symptom.category})
+            {!narrativeOnly && (
+              <>
+                {metaAttributes && (
+                  <div className="border-t pt-4">
+                    <MetaAttributesDisplay metaAttributes={metaAttributes} />
+                  </div>
+                )}
+                {extractedEntities.length > 0 && (
+                  <div className="border-t pt-4">
+                    <ExtractedEntitiesList entities={extractedEntities} />
+                  </div>
+                )}
+                {extractedModalities.length > 0 && (
+                  <div className="border-t pt-4">
+                    <ExtractedModalitiesList modalities={extractedModalities} />
+                  </div>
+                )}
+                {extractedSymptoms.length > 0 && (
+                  <div className="border-t pt-4">
+                    <ExtractedSymptomsList
+                      symptoms={extractedSymptoms}
+                      onConfirm={handleConfirmSymptom}
+                      onReject={handleRejectSymptom}
+                      onUpdate={handleUpdateSymptom}
+                      onConfirmAll={handleConfirmAll}
+                      onRejectAll={handleRejectAll}
+                      onSuggestRubrics={handleSuggestRubrics}
+                    />
+                  </div>
+                )}
+                {confirmedSymptoms.length > 0 && (
+                  <div className="border-t pt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-medium">
+                        Confirmed Symptoms ({confirmedSymptoms.length})
+                      </h3>
                     </div>
-                  ))}
-                </div>
-              </div>
+                    <div className="flex flex-wrap gap-2">
+                      {confirmedSymptoms.map((symptom, index) => (
+                        <div
+                          key={`${symptom.symptomCode}-${index}`}
+                          className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded border border-green-300"
+                        >
+                          {symptom.symptomName} ({symptom.category})
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </TabsContent>
@@ -298,61 +342,56 @@ export function AICaseInput({
               />
             </div>
 
-            {/* Meta Attributes (shown first if available) */}
-            {metaAttributes && (
-              <div className="border-t pt-4">
-                <MetaAttributesDisplay metaAttributes={metaAttributes} />
-              </div>
-            )}
-
-            {/* Extracted Entities */}
-            {extractedEntities.length > 0 && (
-              <div className="border-t pt-4">
-                <ExtractedEntitiesList entities={extractedEntities} />
-              </div>
-            )}
-
-            {/* Extracted Modalities */}
-            {extractedModalities.length > 0 && (
-              <div className="border-t pt-4">
-                <ExtractedModalitiesList modalities={extractedModalities} />
-              </div>
-            )}
-
-            {/* Extracted Symptoms */}
-            {extractedSymptoms.length > 0 && (
-              <div className="border-t pt-4">
-                <ExtractedSymptomsList
-                  symptoms={extractedSymptoms}
-                  onConfirm={handleConfirmSymptom}
-                  onReject={handleRejectSymptom}
-                  onUpdate={handleUpdateSymptom}
-                  onConfirmAll={handleConfirmAll}
-                  onRejectAll={handleRejectAll}
-                  onSuggestRubrics={handleSuggestRubrics}
-                />
-              </div>
-            )}
-
-            {/* Confirmed Symptoms Summary */}
-            {confirmedSymptoms.length > 0 && (
-              <div className="border-t pt-4">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-medium">
-                    Confirmed Symptoms ({confirmedSymptoms.length})
-                  </h3>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {confirmedSymptoms.map((symptom, index) => (
-                    <div
-                      key={`${symptom.symptomCode}-${index}`}
-                      className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded border border-green-300"
-                    >
-                      {symptom.symptomName} ({symptom.category})
+            {!narrativeOnly && (
+              <>
+                {metaAttributes && (
+                  <div className="border-t pt-4">
+                    <MetaAttributesDisplay metaAttributes={metaAttributes} />
+                  </div>
+                )}
+                {extractedEntities.length > 0 && (
+                  <div className="border-t pt-4">
+                    <ExtractedEntitiesList entities={extractedEntities} />
+                  </div>
+                )}
+                {extractedModalities.length > 0 && (
+                  <div className="border-t pt-4">
+                    <ExtractedModalitiesList modalities={extractedModalities} />
+                  </div>
+                )}
+                {extractedSymptoms.length > 0 && (
+                  <div className="border-t pt-4">
+                    <ExtractedSymptomsList
+                      symptoms={extractedSymptoms}
+                      onConfirm={handleConfirmSymptom}
+                      onReject={handleRejectSymptom}
+                      onUpdate={handleUpdateSymptom}
+                      onConfirmAll={handleConfirmAll}
+                      onRejectAll={handleRejectAll}
+                      onSuggestRubrics={handleSuggestRubrics}
+                    />
+                  </div>
+                )}
+                {confirmedSymptoms.length > 0 && (
+                  <div className="border-t pt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-medium">
+                        Confirmed Symptoms ({confirmedSymptoms.length})
+                      </h3>
                     </div>
-                  ))}
-                </div>
-              </div>
+                    <div className="flex flex-wrap gap-2">
+                      {confirmedSymptoms.map((symptom, index) => (
+                        <div
+                          key={`${symptom.symptomCode}-${index}`}
+                          className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded border border-green-300"
+                        >
+                          {symptom.symptomName} ({symptom.category})
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </TabsContent>
@@ -364,8 +403,8 @@ export function AICaseInput({
         </TabsContent>
       </Tabs>
 
-      {/* Rubric Selector Modal */}
-      {showRubricSelector && selectedSymptomForRubrics && (
+      {/* Rubric Selector Modal (only when not narrativeOnly - parent shows its own) */}
+      {!narrativeOnly && showRubricSelector && selectedSymptomForRubrics && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-background rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <RubricSelector

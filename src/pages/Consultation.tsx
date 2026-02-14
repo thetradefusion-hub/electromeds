@@ -8,6 +8,7 @@ import { generatePrescriptionPDF } from '@/utils/generatePrescriptionPDF';
 import { useWhatsAppShare } from '@/hooks/useWhatsAppShare';
 import { MedicalReportAnalyzer } from '@/components/consultation/MedicalReportAnalyzer';
 import { ClassicalHomeopathyConsultation } from '@/components/consultation/ClassicalHomeopathyConsultation';
+import { CaseTakingModeSelect } from '@/components/consultation/CaseTakingModeSelect';
 import { doctorApi } from '@/lib/api/doctor.api';
 import {
   User,
@@ -132,7 +133,15 @@ export default function Consultation() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [showHistory, setShowHistory] = useState(true);
 
+  /** Classical homeopathy: null = show mode selection; 'manual'|'ai' = show case taking screen */
+  const [caseTakingModeChosen, setCaseTakingModeChosen] = useState<'manual' | 'ai' | null>(null);
+
   const patient = patients.find((p) => p.id === selectedPatientId);
+
+  // When patient changes, show mode selection again for classical
+  useEffect(() => {
+    setCaseTakingModeChosen(null);
+  }, [selectedPatientId]);
 
   // Fetch doctor modality
   useEffect(() => {
@@ -768,53 +777,67 @@ export default function Consultation() {
             )}
           </div>
 
-        {/* Classical Homeopathy Consultation */}
+        {/* Classical Homeopathy: first choose case taking mode, then open consultation */}
         {currentModality === 'classical_homeopathy' && selectedPatientId && (
-          <ClassicalHomeopathyConsultation
-            patientId={selectedPatientId}
-            symptoms={symptoms}
-            onCaseRecordCreated={(caseRecordId) => {
-              console.log('Case record created:', caseRecordId);
-            }}
-            onPrescriptionCreated={async (prescriptionId) => {
-              console.log('Prescription created:', prescriptionId);
-              
-              // Show success message
-              toast.success('Prescription created successfully! Redirecting to prescriptions page...');
-              
-              // Navigate to prescriptions page after a short delay
-              setTimeout(() => {
-                navigate('/prescriptions');
-              }, 1000);
-              
-              // Refresh patient history (optional, in case user comes back)
-              try {
-                const response = await prescriptionApi.getPrescriptions();
-                if (response.success && response.data) {
-                  const patientPrescriptions = response.data
-                    .filter((rx) => {
-                      const rxPatientId = typeof rx.patientId === 'string' 
-                        ? rx.patientId 
-                        : rx.patientId?._id;
-                      return rxPatientId === selectedPatientId;
-                    })
-                    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                    .slice(0, 5)
-                    .map((rx) => ({
-                      id: rx._id,
-                      prescription_no: rx.prescriptionNo,
-                      created_at: rx.createdAt,
-                      symptoms: (rx.symptoms || []).map((s: any) => ({ name: s.name || s.symptomName || '' })),
-                      medicines: (rx.medicines || []).map((m: any) => ({ name: m.name || m.medicineName || '' })),
-                    }));
-                  
-                  setPatientHistory(patientPrescriptions);
-                }
-              } catch (error) {
-                console.error('Error fetching patient history:', error);
-              }
-            }}
-          />
+          <>
+            {caseTakingModeChosen === null ? (
+              <div className="medical-card border-primary/10 bg-gradient-to-br from-primary/5 via-background to-background py-8 px-4">
+                <CaseTakingModeSelect
+                  patientName={patient?.name}
+                  patientId={patient?.patient_id}
+                  onSelectMode={(mode) => setCaseTakingModeChosen(mode)}
+                  onBack={() => setSelectedPatientId(null)}
+                />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setCaseTakingModeChosen(null)}
+                    className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-2"
+                  >
+                    ← Change case taking mode
+                  </button>
+                </div>
+                <ClassicalHomeopathyConsultation
+                  patientId={selectedPatientId}
+                  symptoms={symptoms}
+                  initialInputMode={caseTakingModeChosen}
+                  onCaseRecordCreated={(caseRecordId) => {
+                    console.log('Case record created:', caseRecordId);
+                  }}
+                  onPrescriptionCreated={async (prescriptionId) => {
+                    console.log('Prescription created:', prescriptionId);
+                    toast.success('Prescription created. Opening preview – share or print as needed.');
+                    navigate('/prescriptions', { state: { newPrescriptionId: prescriptionId } });
+                    try {
+                      const response = await prescriptionApi.getPrescriptions();
+                      if (response.success && response.data) {
+                        const patientPrescriptions = response.data
+                          .filter((rx) => {
+                            const rxPatientId = typeof rx.patientId === 'string' ? rx.patientId : rx.patientId?._id;
+                            return rxPatientId === selectedPatientId;
+                          })
+                          .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                          .slice(0, 5)
+                          .map((rx) => ({
+                            id: rx._id,
+                            prescription_no: rx.prescriptionNo,
+                            created_at: rx.createdAt,
+                            symptoms: (rx.symptoms || []).map((s: any) => ({ name: s.name || s.symptomName || '' })),
+                            medicines: (rx.medicines || []).map((m: any) => ({ name: m.name || m.medicineName || '' })),
+                          }));
+                        setPatientHistory(patientPrescriptions);
+                      }
+                    } catch (error) {
+                      console.error('Error fetching patient history:', error);
+                    }
+                  }}
+                />
+              </div>
+            )}
+          </>
         )}
 
         {/* Electro Homeopathy Consultation (Existing) */}

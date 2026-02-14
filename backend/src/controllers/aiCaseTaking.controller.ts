@@ -12,6 +12,7 @@ import QuestionGeneratorService from '../services/questionGenerator.service.js';
 import AnswerToSymptomService from '../services/answerToSymptom.service.js';
 import RubricMappingEngine from '../services/rubricMapping.service.js';
 import CaseSummaryGeneratorService from '../services/caseSummaryGenerator.service.js';
+import whisperTranscription from '../services/whisperTranscription.service.js';
 import { CustomError } from '../middleware/errorHandler.js';
 import { StructuredCase, NormalizedCaseProfile } from '../services/caseEngine.service.js';
 
@@ -342,6 +343,43 @@ export const generateSummary = async (
     res.status(200).json({
       success: true,
       data: summary,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @route   POST /api/ai-case-taking/transcribe-audio
+ * @desc    Transcribe audio file using OpenAI Whisper
+ * @access  Private (Doctor only)
+ * @body    multipart: audio (file), language (optional, e.g. en-US, hi-IN)
+ */
+export const transcribeAudio = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): Promise<void> => {
+  try {
+    if (!req.file || !req.file.buffer) {
+      throw new CustomError('Audio file is required', 400);
+    }
+
+    const isAvailable = await whisperTranscription.isAvailable();
+    if (!isAvailable) {
+      throw new CustomError('Whisper transcription is not available. Please configure OpenAI API key.', 503);
+    }
+
+    const language = (req.body?.language as string) || null;
+    const { text } = await whisperTranscription.transcribe(
+      req.file.buffer,
+      req.file.mimetype || 'audio/webm',
+      language
+    );
+
+    res.status(200).json({
+      success: true,
+      data: { text },
     });
   } catch (error) {
     next(error);

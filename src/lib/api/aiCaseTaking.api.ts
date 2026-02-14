@@ -8,6 +8,22 @@ import api, { ApiResponse } from '../api';
 import axios from 'axios';
 
 // Types
+// RubricSuggestion is used when user confirms rubrics from the book icon selector
+export interface RubricSuggestion {
+  rubricId: string;
+  rubricText: string;
+  repertoryType: string;
+  chapter: string;
+  matchScore: number;
+  confidence: 'exact' | 'high' | 'medium' | 'low';
+  relevanceScore: number;
+  isRare: boolean;
+  matchedSymptoms: string[];
+  remedyCount?: number;
+  avgGrade?: number;
+  matchedText?: string;
+}
+
 export interface ExtractedSymptom {
   symptomCode: string;
   symptomName: string;
@@ -17,6 +33,8 @@ export interface ExtractedSymptom {
   sensation?: string;
   context?: string;
   matchedText?: string;
+  // User-confirmed rubrics from the book icon (used for remedy suggestion)
+  selectedRubrics?: RubricSuggestion[];
   // Enhanced features
   importance?: number; // 1-5 scale
   isSRP?: boolean; // Strange, Rare, Peculiar
@@ -295,22 +313,6 @@ export const extractSymptomsFromAnswers = async (
   }
 };
 
-// Rubric Suggestion Types
-export interface RubricSuggestion {
-  rubricId: string;
-  rubricText: string;
-  repertoryType: string;
-  chapter: string;
-  matchScore: number;
-  confidence: 'exact' | 'high' | 'medium' | 'low';
-  relevanceScore: number;
-  isRare: boolean;
-  matchedSymptoms: string[];
-  remedyCount?: number;
-  avgGrade?: number;
-  matchedText?: string;
-}
-
 export interface SuggestRubricsRequest {
   symptom: {
     symptomCode?: string;
@@ -421,6 +423,39 @@ export interface GenerateSummaryRequest {
     isChronic: boolean;
   };
 }
+
+/**
+ * Transcribe audio using Whisper (server-side).
+ * @param audioBlob - Recorded audio Blob (e.g. from MediaRecorder)
+ * @param language - Optional language hint, e.g. 'en-US', 'hi-IN'
+ */
+export const transcribeAudio = async (
+  audioBlob: Blob,
+  language?: string
+): Promise<{ text: string }> => {
+  try {
+    const formData = new FormData();
+    formData.append('audio', audioBlob, 'recording.webm');
+    if (language) formData.append('language', language);
+
+    const response = await api.post<ApiResponse<{ text: string }>>(
+      '/ai-case-taking/transcribe-audio',
+      formData,
+      { timeout: 60000 }
+    );
+
+    if (response.data.success && response.data.data) {
+      return response.data.data;
+    }
+    throw new Error(response.data.message || 'Transcription failed');
+  } catch (error: any) {
+    const message =
+      error.response?.data?.message ||
+      error.message ||
+      'Failed to transcribe audio';
+    throw new Error(message);
+  }
+};
 
 /**
  * Generate AI-powered case summary

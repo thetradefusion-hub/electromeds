@@ -7,18 +7,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import { ExtractedSymptomCard } from './ExtractedSymptomCard';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, XCircle, Search, Filter } from 'lucide-react';
+import { CheckCircle2, XCircle } from 'lucide-react';
 import { ExtractedSymptom } from '@/lib/api/aiCaseTaking.api';
-import { cn } from '@/lib/utils';
 import {
   DndContext,
   closestCenter,
@@ -36,13 +26,6 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-
-const categoryColors = {
-  mental: 'border-blue-300 bg-blue-50/30',
-  general: 'border-blue-300 bg-blue-50/30',
-  particular: 'border-orange-300 bg-orange-50/30',
-  modality: 'border-green-300 bg-green-50/30',
-};
 
 interface ExtractedSymptomsListProps {
   symptoms: ExtractedSymptom[];
@@ -271,83 +254,6 @@ export function ExtractedSymptomsList({
           </div>
         )}
       </div>
-
-      {/* Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
-        <div className="relative">
-          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search symptoms..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8 h-9"
-          />
-        </div>
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="h-9">
-            <Filter className="h-4 w-4 mr-2" />
-            <SelectValue placeholder="Category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Categories</SelectItem>
-            <SelectItem value="mental">Mental</SelectItem>
-            <SelectItem value="general">General</SelectItem>
-            <SelectItem value="particular">Particular</SelectItem>
-            <SelectItem value="modality">Modality</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={confidenceFilter} onValueChange={setConfidenceFilter}>
-          <SelectTrigger className="h-9">
-            <SelectValue placeholder="Confidence" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Confidence</SelectItem>
-            <SelectItem value="exact">Exact Match</SelectItem>
-            <SelectItem value="high">High</SelectItem>
-            <SelectItem value="medium">Medium</SelectItem>
-            <SelectItem value="low">Low</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
-          <SelectTrigger className="h-9">
-            <SelectValue placeholder="Sort by" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="confidence">Sort by Confidence</SelectItem>
-            <SelectItem value="category">Sort by Category</SelectItem>
-            <SelectItem value="name">Sort by Name</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Results Count */}
-      {filteredSymptoms.length !== localSymptoms.length && (
-        <div className="text-sm text-muted-foreground">
-          Showing {filteredSymptoms.length} of {localSymptoms.length} symptoms
-        </div>
-      )}
-
-      {/* Category Drop Zones (if drag-drop enabled) */}
-      {enableDragDrop && (
-        <div className="grid grid-cols-4 gap-2 mb-4">
-          {(['mental', 'general', 'particular', 'modality'] as const).map((category) => (
-            <div
-              key={category}
-              id={category}
-              className={cn(
-                'border-2 border-dashed rounded-lg p-3 text-center text-xs',
-                'bg-muted/30 hover:bg-muted/50 transition-colors',
-                categoryColors[category]
-              )}
-            >
-              <div className="font-medium capitalize">{category}</div>
-              <div className="text-muted-foreground mt-1">
-                Drop here to change category
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Symptoms List */}
       <DndContext
