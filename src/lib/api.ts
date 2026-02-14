@@ -15,12 +15,17 @@ const api: AxiosInstance = axios.create({
   timeout: 60000, // 60 seconds timeout (increased for NLP operations)
 });
 
-// Request interceptor - Add auth token
+// Request interceptor - Add auth token; allow FormData (e.g. audio) to set its own Content-Type
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    // When sending FormData (e.g. transcribe-audio), do not set Content-Type so axios
+    // sends multipart/form-data with boundary; otherwise backend multer gets no file
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
     }
     return config;
   },
