@@ -13,40 +13,6 @@ import mongoose from 'mongoose';
 import { Client } from 'pg';
 import config from '../config/env.js';
 import Rubric from '../models/Rubric.model.js';
-import RubricRemedy from '../models/RubricRemedy.model.js';
-
-// Common Kent Repertory chapters (standard order)
-const KENT_CHAPTERS = [
-  'Mind',
-  'Vertigo',
-  'Head',
-  'Eye',
-  'Ear',
-  'Nose',
-  'Face',
-  'Mouth',
-  'Throat',
-  'Stomach',
-  'Abdomen',
-  'Rectum',
-  'Stool',
-  'Urine',
-  'Male',
-  'Female',
-  'Larynx',
-  'Cough',
-  'Expectoration',
-  'Respiration',
-  'Chest',
-  'Heart',
-  'Back',
-  'Extremities',
-  'Sleep',
-  'Dreams',
-  'Fever',
-  'Generals',
-  'Skin',
-];
 
 // Chapter keywords mapping (for pattern matching)
 const CHAPTER_KEYWORDS: Record<string, string[]> = {
@@ -226,18 +192,15 @@ async function fixRubricChapters() {
       for (const rubric of batch) {
         try {
           let chapter: string | null = null;
-          let source = '';
 
           // First, try to get from OOREP database (if available)
           chapter = await getChapterFromOorep(rubric.rubricText);
           if (chapter) {
-            source = 'OOREP';
             fromOorep++;
           } else {
             // Fallback to pattern matching
             chapter = inferChapterFromText(rubric.rubricText);
             if (chapter) {
-              source = 'pattern';
               fromPattern++;
             }
           }

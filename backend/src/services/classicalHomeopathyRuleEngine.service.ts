@@ -63,7 +63,7 @@ export class ClassicalHomeopathyRuleEngine {
       const normalizedCase = await this.caseEngine.normalizeCase(structuredCase);
       console.log(`[ClassicalHomeopathyRuleEngine] Normalized case: Mental=${normalizedCase.mental?.length || 0}, Generals=${normalizedCase.generals?.length || 0}, Particulars=${normalizedCase.particulars?.length || 0}, Modalities=${normalizedCase.modalities?.length || 0}`);
 
-      let selectedRubrics: Array<{ rubricId: string; rubricText: string; repertoryType: string; matchedSymptoms: string[]; autoSelected?: boolean }>;
+      let selectedRubrics: Array<{ rubricId: mongoose.Types.ObjectId; rubricText: string; repertoryType: string; matchedSymptoms: string[]; autoSelected?: boolean }>;
 
       if (selectedRubricIds && selectedRubricIds.length > 0) {
         // Use user-confirmed rubrics from AI input (book icon) instead of mapping
@@ -72,12 +72,25 @@ export class ClassicalHomeopathyRuleEngine {
       } else {
         // Step 3: Rubric Mapping from symptoms
         const rubricMappings = await this.rubricMapping.mapSymptomsToRubrics(normalizedCase);
-        selectedRubrics = rubricMappings.filter((r) => r.autoSelected);
+        selectedRubrics = rubricMappings.filter((r) => r.autoSelected).map((r) => ({
+          rubricId: r.rubricId,
+          rubricText: r.rubricText,
+          repertoryType: r.repertoryType,
+          matchedSymptoms: r.matchedSymptoms,
+          autoSelected: r.autoSelected,
+        }));
 
         if (selectedRubrics.length === 0) {
           selectedRubrics = rubricMappings
             .filter((r) => r.confidence >= 20)
-            .slice(0, 20);
+            .slice(0, 20)
+            .map((r) => ({
+              rubricId: r.rubricId,
+              rubricText: r.rubricText,
+              repertoryType: r.repertoryType,
+              matchedSymptoms: r.matchedSymptoms,
+              autoSelected: false,
+            }));
 
           console.log(`[ClassicalHomeopathyRuleEngine] No auto-selected rubrics found. Using ${selectedRubrics.length} rubrics with confidence >= 20%`);
         }
